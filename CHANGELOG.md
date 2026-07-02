@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/alampros/homebridge-dihool-lifts/compare/homebridge-dihool-lifts-v0.1.1...homebridge-dihool-lifts-v0.1.2) (2026-07-02)
+
+
+### Bug Fixes
+
+* refactor from garage door to windowcovering ([db698e5](https://github.com/alampros/homebridge-dihool-lifts/commit/db698e515a0991438477cd4be234c46a709fc816))
+
 ## [0.1.1](https://github.com/alampros/homebridge-dihool-lifts/compare/homebridge-dihool-lifts-v0.1.0...homebridge-dihool-lifts-v0.1.1) (2026-07-02)
 
 
