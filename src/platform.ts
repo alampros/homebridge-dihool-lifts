@@ -248,6 +248,37 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
   }
 
   getDeviceConfig(deviceId: string): DeviceConfig | undefined {
-    return this.config.devices?.find((d) => d.deviceId === deviceId);
+    if (!this.config.devices?.length) {
+      return undefined;
+    }
+
+    // Exact match by deviceId
+    const exact = this.config.devices.find((d) => d.deviceId === deviceId);
+    if (exact) {
+      return exact;
+    }
+
+    // If there's exactly one device config entry with no deviceId, assume
+    // it applies to this device (common when using cloud discovery with a
+    // single lift).
+    const unkeyed = this.config.devices.filter((d) => !d.deviceId);
+    if (unkeyed.length === 1) {
+      this.log.info(
+        'Device config has no deviceId — assuming it applies to %s. ' +
+        'Set "deviceId": "%s" in your config to silence this warning.',
+        deviceId, deviceId,
+      );
+      return unkeyed[0];
+    }
+
+    if (unkeyed.length > 1) {
+      this.log.warn(
+        'Multiple device config entries without deviceId — cannot determine which applies to %s. ' +
+        'Add "deviceId" to each entry in config.json.',
+        deviceId,
+      );
+    }
+
+    return undefined;
   }
 }
