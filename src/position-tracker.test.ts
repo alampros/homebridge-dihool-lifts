@@ -80,26 +80,27 @@ describe('PositionTracker', () => {
       expect(plan!.isCalibration).toBe(true);
     });
 
-    it('startMovement(100) from unknown state returns calibration plan going up', () => {
+    it('startMovement(100) from unknown state calibrates down first (not up)', () => {
       const { tracker } = createTracker(tempDir);
       const plan = tracker.startMovement(100);
       expect(plan).not.toBeNull();
-      expect(plan!.direction).toBe('up');
+      // Always calibrates down — 0% is the only limit-switch endpoint
+      expect(plan!.direction).toBe('down');
       expect(plan!.isCalibration).toBe(true);
     });
 
-    it('startMovement(50) from unknown defaults to calibration down (<= 50)', () => {
+    it('startMovement(50) from unknown calibrates down', () => {
       const { tracker } = createTracker(tempDir);
       const plan = tracker.startMovement(50);
       expect(plan).not.toBeNull();
       expect(plan!.direction).toBe('down');
     });
 
-    it('startMovement(51) from unknown defaults to calibration up (> 50)', () => {
+    it('startMovement(51) from unknown calibrates down', () => {
       const { tracker } = createTracker(tempDir);
       const plan = tracker.startMovement(51);
       expect(plan).not.toBeNull();
-      expect(plan!.direction).toBe('up');
+      expect(plan!.direction).toBe('down');
     });
 
     it('calibration plan duration equals (travelTime + calibrationExtra) * 1000', () => {
@@ -121,9 +122,10 @@ describe('PositionTracker', () => {
       expect(tracker.getCurrentPosition()).toBe(0);
     });
 
-    it('completeMovement() after calibration up sets position to 100 and phase to stopped', () => {
+    it('completeMovement() after startCalibration(up) sets position to 100', () => {
       const { tracker } = createTracker(tempDir);
-      tracker.startMovement(100);
+      // Use startCalibration directly — startMovement always calibrates down
+      tracker.startCalibration('up');
       tracker.completeMovement();
       expect(tracker.getState().phase).toBe('stopped');
       expect(tracker.getCurrentPosition()).toBe(100);
@@ -142,11 +144,12 @@ describe('PositionTracker', () => {
   // ========================================================================
 
   describe('basic movement', () => {
-    it('from position 0, startMovement(100) returns up plan with calibration duration and isCalibration=true', () => {
+    it('from position 0, startMovement(100) returns up plan with full travel duration (not calibration)', () => {
       const { tracker } = createTracker(tempDir);
       tracker.markCalibrated(0);
       const plan = tracker.startMovement(100);
-      expect(plan).toEqual({ direction: 'up', durationMs: 12000, isCalibration: true });
+      // 100% is NOT calibration — only 0% has a limit switch
+      expect(plan).toEqual({ direction: 'up', durationMs: 10000, isCalibration: false });
     });
 
     it('from position 0, startMovement(50) returns up plan with half duration and isCalibration=false', () => {
@@ -163,7 +166,7 @@ describe('PositionTracker', () => {
       expect(plan).toEqual({ direction: 'down', durationMs: 5000, isCalibration: false });
     });
 
-    it('from position 100, startMovement(0) returns down plan with isCalibration=true', () => {
+    it('from position 100, startMovement(0) returns down plan with calibration (limit switch at bottom)', () => {
       const { tracker } = createTracker(tempDir);
       tracker.markCalibrated(100);
       const plan = tracker.startMovement(0);
@@ -248,14 +251,15 @@ describe('PositionTracker', () => {
   // ========================================================================
 
   describe('asymmetric travel times', () => {
-    it('movement 0→100 uses up travel time plus calibration extra (12s)', () => {
+    it('movement 0→100 uses full up travel time (no calibration extra)', () => {
       const { tracker } = createTracker(tempDir, {
         travelTimeUpSec: 10,
         travelTimeDownSec: 5,
       });
       tracker.markCalibrated(0);
       const plan = tracker.startMovement(100);
-      expect(plan!.durationMs).toBe(12000);
+      // 100% is timed, not calibration — no extra time
+      expect(plan!.durationMs).toBe(10000);
     });
 
     it('movement 100→0 uses down travel time plus calibration extra (7s)', () => {
@@ -343,7 +347,7 @@ describe('PositionTracker', () => {
       expect(tracker.getState().phase).toBe('unknown');
     });
 
-    it('after interrupting calibration, next startMovement triggers fresh calibration', () => {
+    it('after interrupting calibration, next startMovement triggers fresh calibration down', () => {
       const { tracker, clock } = createTracker(tempDir);
       // Start calibration down
       tracker.startMovement(0);
@@ -353,11 +357,11 @@ describe('PositionTracker', () => {
       tracker.snapshotPosition();
       expect(tracker.getState().phase).toBe('unknown');
 
-      // Next move should trigger a new calibration
+      // Next move should trigger a new calibration (always down — only limit switch)
       const plan = tracker.startMovement(100);
       expect(plan).not.toBeNull();
       expect(plan!.isCalibration).toBe(true);
-      expect(plan!.direction).toBe('up');
+      expect(plan!.direction).toBe('down');
       expect(tracker.getState().phase).toBe('calibrating');
     });
   });
@@ -500,7 +504,7 @@ describe('PositionTracker', () => {
       const plan = tracker.startMovement(150);
       expect(plan).not.toBeNull();
       expect(plan!.direction).toBe('up');
-      expect(plan!.isCalibration).toBe(true);
+      expect(plan!.isCalibration).toBe(false); // 100% is timed, not calibration
     });
 
     it('position never goes below 0 during interpolation', () => {
@@ -597,7 +601,7 @@ describe('PositionTracker', () => {
     it('logs calibration start from unknown', () => {
       const { tracker, logs } = createTracker(tempDir);
       tracker.startMovement(0);
-      expect(logs.some((m) => m.includes('Position unknown') && m.includes('calibration down'))).toBe(true);
+      expect(logs.some((m) => m.includes('Position unknown') && m.includes('calibration down to 0%'))).toBe(true);
     });
 
     it('logs when ignoring command during calibration', () => {

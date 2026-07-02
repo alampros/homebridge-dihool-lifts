@@ -167,11 +167,10 @@ export class PositionTracker {
   startMovement(target: number): MovementPlan | null {
     const clamped = clamp(target, 0, 100);
 
-    // If unknown position, only allow calibration moves (0 or 100)
+    // If unknown position, calibrate down to 0% (the only limit-switch endpoint)
     if (this.state.phase === 'unknown') {
-      const dir: 'up' | 'down' = clamped <= 50 ? 'down' : 'up';
-      this.log(`Position unknown, starting calibration ${dir}`);
-      return this.startCalibration(dir);
+      this.log('Position unknown, starting calibration down to 0%');
+      return this.startCalibration('down');
     }
 
     // If calibrating, ignore new commands
@@ -194,8 +193,9 @@ export class PositionTracker {
       ? this.config.travelTimeUpSec
       : this.config.travelTimeDownSec;
 
-    // Is this a full-travel calibration move? (target is an endpoint)
-    const isCalibration = clamped === 0 || clamped === 100;
+    // Only 0% is a true calibration move (physical limit switch at bottom).
+    // 100% is a timed stop — the top is defined by travel time, not a switch.
+    const isCalibration = clamped === 0;
     const durationMs = isCalibration
       ? (travelTimeSec + this.config.calibrationExtraSec) * 1000
       : (travel / 100) * travelTimeSec * 1000;
