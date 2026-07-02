@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3](https://github.com/alampros/homebridge-dihool-lifts/compare/homebridge-dihool-lifts-v0.1.2...homebridge-dihool-lifts-v0.1.3) (2026-07-02)
+
+
+### Bug Fixes
+
+* mdns discovery state ([52f4bc8](https://github.com/alampros/homebridge-dihool-lifts/commit/52f4bc84f64f65f8ee36118f10ddb12f37a01732))
+* only calibrate at 0% — 100% uses timed stop ([f8145e1](https://github.com/alampros/homebridge-dihool-lifts/commit/f8145e144a1793f44a70b535d108c6c929e79cd5))
+
 ## [0.1.2](https://github.com/alampros/homebridge-dihool-lifts/compare/homebridge-dihool-lifts-v0.1.1...homebridge-dihool-lifts-v0.1.2) (2026-07-02)
 
 
