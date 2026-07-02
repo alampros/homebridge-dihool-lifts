@@ -1,0 +1,46 @@
+{
+  "name": "homebridge-dihool-lifts",
+  "displayName": "Homebridge DIHOOL Lifts",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Homebridge plugin to control DIHOOL IPS-S2 scissor lifts via the eWeLink LAN protocol.",
+  "author": "Aaron Lampros",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alampros/homebridge-dihool-lifts.git"
+  },
+  "keywords": [
+    "homebridge",
+    "homebridge-plugin",
+    "homekit",
+    "dihool",
+    "lift",
+    "scissor-lift",
+    "ewelink",
+    "motor-controller",
+    "accessibility"
+  ],
+  "main": "dist/index.js",
+  "engines": {
+    "homebridge": "^1.6.0 || ^2.0.0",
+    "node": "^22.12.0 || ^24.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepublishOnly": "npm run build",
+    "lint": "oxlint src/ && tsc --noEmit",
+    "dev": "npm run build && homebridge -D -U ./.homebridge-dev -P ."
+  },
+  "devDependencies": {
+    "@types/multicast-dns": "^7.2.4",
+    "@types/node": "^22.0.0",
+    "homebridge": "^2.0.0",
+    "oxlint": "^1.72.0",
+    "typescript": "^7.0.1-rc"
+  },
+  "dependencies": {
+    "multicast-dns": "^7.2.5"
+  }
+}

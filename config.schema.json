@@ -1,0 +1,175 @@
+{
+  "pluginAlias": "DihoolLifts",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Control DIHOOL IPS-S2 scissor lifts via the eWeLink LAN protocol. Enter your eWeLink credentials for automatic device discovery, or configure devices manually with their Device ID and LAN Key.",
+  "footerDisplay": "For help, see the [GitHub repository](https://github.com/alampros/homebridge-dihool-lifts).",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Plugin Name",
+        "type": "string",
+        "default": "Dihool Lifts",
+        "required": true
+      },
+      "username": {
+        "title": "eWeLink Email or Phone",
+        "type": "string",
+        "description": "Your eWeLink account email or phone number. Required for automatic device discovery.",
+        "placeholder": "user@example.com"
+      },
+      "password": {
+        "title": "eWeLink Password",
+        "type": "string",
+        "description": "Your eWeLink account password.",
+        "x-schema-form": {
+          "type": "password"
+        }
+      },
+      "countryCode": {
+        "title": "Country Code",
+        "type": "string",
+        "default": "+1",
+        "description": "Your country calling code (e.g. +1 for US, +44 for UK).",
+        "placeholder": "+1"
+      },
+      "mode": {
+        "title": "Connection Mode",
+        "type": "string",
+        "default": "auto",
+        "oneOf": [
+          { "title": "Auto (cloud discovery + LAN control)", "enum": ["auto"] },
+          { "title": "LAN Only (requires manual device config)", "enum": ["lan"] }
+        ],
+        "description": "In 'auto' mode, the plugin logs into eWeLink to discover devices, then controls them over LAN. In 'lan' mode, no cloud connection is made."
+      },
+      "debug": {
+        "title": "Debug Logging",
+        "type": "boolean",
+        "default": false,
+        "description": "Enable verbose debug logging."
+      },
+      "devices": {
+        "title": "Lift Devices",
+        "type": "array",
+        "description": "Per-device configuration. If using cloud discovery, devices are found automatically -- use this section only for overrides. For LAN-only mode, you must provide Device ID and LAN Key.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "deviceId": {
+              "title": "Device ID",
+              "type": "string",
+              "description": "The eWeLink device ID (e.g. 100293a98d). Found in eWeLink app under device settings.",
+              "placeholder": "100293a98d"
+            },
+            "label": {
+              "title": "Display Name",
+              "type": "string",
+              "description": "Custom name for this lift in HomeKit.",
+              "placeholder": "Sunroom Lift"
+            },
+            "lanKey": {
+              "title": "LAN Key",
+              "type": "string",
+              "description": "Device encryption key. Required for LAN-only mode. Use the get-lankey script to obtain this.",
+              "x-schema-form": {
+                "type": "password"
+              }
+            },
+            "ipAddress": {
+              "title": "IP Address Override",
+              "type": "string",
+              "description": "Manual IP address. Skips mDNS discovery for this device.",
+              "placeholder": "192.168.1.100",
+              "format": "ipv4"
+            },
+            "operationTimeUp": {
+              "title": "Up Travel Time (seconds)",
+              "type": "number",
+              "default": 25,
+              "minimum": 5,
+              "maximum": 120,
+              "description": "Time in seconds for the lift to travel from fully down to fully up."
+            },
+            "operationTimeDown": {
+              "title": "Down Travel Time (seconds)",
+              "type": "number",
+              "default": 20,
+              "minimum": 5,
+              "maximum": 120,
+              "description": "Time in seconds for the lift to travel from fully up to fully down."
+            },
+            "upChannel": {
+              "title": "Up Channel",
+              "type": "integer",
+              "default": 0,
+              "minimum": 0,
+              "maximum": 3,
+              "description": "eWeLink outlet index for the UP motor control. Default: 0."
+            },
+            "downChannel": {
+              "title": "Down Channel",
+              "type": "integer",
+              "default": 1,
+              "minimum": 0,
+              "maximum": 3,
+              "description": "eWeLink outlet index for the DOWN motor control. Default: 1."
+            },
+            "showDebugSwitches": {
+              "title": "Show Debug Switches",
+              "type": "boolean",
+              "default": false,
+              "description": "Expose raw channel switches as separate HomeKit accessories for debugging."
+            }
+          },
+          "required": ["deviceId"]
+        }
+      }
+    }
+  },
+  "layout": [
+    {
+      "type": "fieldset",
+      "title": "eWeLink Account",
+      "description": "Enter your eWeLink credentials for automatic device discovery.",
+      "expandable": true,
+      "expanded": true,
+      "items": ["username", "password", "countryCode"]
+    },
+    {
+      "type": "fieldset",
+      "title": "General Settings",
+      "expandable": true,
+      "expanded": false,
+      "items": ["mode", "debug"]
+    },
+    {
+      "key": "devices",
+      "type": "array",
+      "title": "Lift Devices",
+      "expandable": true,
+      "expanded": true,
+      "buttonText": "Add Lift",
+      "items": [
+        "devices[].deviceId",
+        "devices[].label",
+        {
+          "type": "fieldset",
+          "title": "Advanced",
+          "expandable": true,
+          "expanded": false,
+          "items": [
+            "devices[].lanKey",
+            "devices[].ipAddress",
+            "devices[].operationTimeUp",
+            "devices[].operationTimeDown",
+            "devices[].upChannel",
+            "devices[].downChannel",
+            "devices[].showDebugSwitches"
+          ]
+        }
+      ]
+    }
+  ]
+}
