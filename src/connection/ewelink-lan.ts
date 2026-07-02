@@ -392,20 +392,26 @@ export class EWeLinkLAN {
     if (!mdns) return;
 
     return new Promise<void>((resolve) => {
-      const timer = setTimeout(() => {
+      let resolved = false;
+      let timer: NodeJS.Timeout;
+
+      const cleanup = () => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timer);
+        mdns.removeListener('response', onResponse);
         resolve();
-      }, 3000);
+      };
 
       const onResponse = (response: multicastDns.ResponsePacket) => {
         this.processResponseRecords(response);
         const info = this.deviceMap.get(deviceId);
         if (info?.ip) {
-          clearTimeout(timer);
-          mdns.removeListener('response', onResponse);
-          resolve();
+          cleanup();
         }
       };
 
+      timer = setTimeout(cleanup, 3000);
       mdns.on('response', onResponse);
       mdns.query([{ name: MDNS_PTR_NAME, type: 'PTR' }]);
     });

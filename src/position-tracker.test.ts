@@ -117,16 +117,51 @@ describe('PositionTracker', () => {
     it('completeMovement() after calibration down sets position to 0 and phase to stopped', () => {
       const { tracker } = createTracker(tempDir);
       tracker.startMovement(0);
-      tracker.completeMovement();
+      const nextPlan = tracker.completeMovement();
+      expect(nextPlan).toBeNull();
       expect(tracker.getState().phase).toBe('stopped');
       expect(tracker.getCurrentPosition()).toBe(0);
+    });
+
+    it('completeMovement() after unknown non-zero target returns follow-up plan to requested target', () => {
+      const { tracker } = createTracker(tempDir);
+      const calibrationPlan = tracker.startMovement(50);
+      expect(calibrationPlan).toEqual({ direction: 'down', durationMs: 12000, isCalibration: true });
+
+      const nextPlan = tracker.completeMovement();
+      expect(nextPlan).toEqual({ direction: 'up', durationMs: 5000, isCalibration: false });
+      expect(tracker.getState()).toMatchObject({
+        phase: 'moving',
+        direction: 'up',
+        from: 0,
+        to: 50,
+      });
+
+      tracker.completeMovement();
+      expect(tracker.getState().phase).toBe('stopped');
+      expect(tracker.getCurrentPosition()).toBe(50);
+    });
+
+    it('completeMovement() after unknown 100% target returns full upward follow-up plan', () => {
+      const { tracker } = createTracker(tempDir);
+      tracker.startMovement(100);
+
+      const nextPlan = tracker.completeMovement();
+      expect(nextPlan).toEqual({ direction: 'up', durationMs: 10000, isCalibration: false });
+      expect(tracker.getState()).toMatchObject({
+        phase: 'moving',
+        direction: 'up',
+        from: 0,
+        to: 100,
+      });
     });
 
     it('completeMovement() after startCalibration(up) sets position to 100', () => {
       const { tracker } = createTracker(tempDir);
       // Use startCalibration directly — startMovement always calibrates down
       tracker.startCalibration('up');
-      tracker.completeMovement();
+      const nextPlan = tracker.completeMovement();
+      expect(nextPlan).toBeNull();
       expect(tracker.getState().phase).toBe('stopped');
       expect(tracker.getCurrentPosition()).toBe(100);
     });

@@ -48,6 +48,8 @@ interface CalibratingState {
   readonly direction: 'up' | 'down';
   /** Timestamp (ms) when calibration started. */
   readonly startedAt: number;
+  /** Optional target to move to after calibration completes. */
+  readonly pendingTarget?: number;
 }
 
 export type TrackerState = UnknownState | StoppedState | MovingState | CalibratingState;
@@ -61,7 +63,7 @@ export interface MovementPlan {
   direction: 'up' | 'down';
   /** How long to run the motor (ms). */
   durationMs: number;
-  /** True when target is 0 or 100 — motor should run full travel + extra. */
+  /** True when this is an endpoint calibration move. */
   isCalibration: boolean;
 }
 
@@ -77,8 +79,8 @@ export interface PositionTrackerConfig {
   /** Full travel time going down, in seconds. */
   travelTimeDownSec: number;
   /**
-   * Extra seconds to add when commanding 0% or 100%, ensuring the motor
-   * hits the physical limit switch and we can snap to a known endpoint.
+   * Extra seconds to add when commanding 0%, ensuring the motor hits the
+   * physical limit switch and we can snap to a known endpoint.
    */
   calibrationExtraSec: number;
   /** Directory for the persistence file. */
@@ -167,10 +169,11 @@ export class PositionTracker {
   startMovement(target: number): MovementPlan | null {
     const clamped = clamp(target, 0, 100);
 
-    // If unknown position, calibrate down to 0% (the only limit-switch endpoint)
+    // If unknown position, calibrate down to 0% first (the only limit-switch endpoint).
+    // Non-zero targets are remembered and planned after calibration completes.
     if (this.state.phase === 'unknown') {
-      this.log('Position unknown, starting calibration down to 0%');
-      return this.startCalibration('down');
+      this.log(`Position unknown, starting calibration down to 0%${clamped !== 0 ? ` before moving to ${fmtPos(clamped)}` : ''}`);
+      return this.startCalibration('down', clamped === 0 ? undefined : clamped);
     }
 
     // If calibrating, ignore new commands
@@ -253,14 +256,16 @@ export class PositionTracker {
    * Called when the motor-run timer fires. Finalizes position and
    * transitions to stopped.
    */
-  completeMovement(): void {
+  completeMovement(): MovementPlan | null {
     const prev = this.state;
+    let pendingTarget: number | undefined;
 
     switch (this.state.phase) {
       case 'moving':
         this.state = { phase: 'stopped', position: this.state.to };
         break;
       case 'calibrating':
+        pendingTarget = this.state.pendingTarget;
         this.state = {
           phase: 'stopped',
           position: this.state.direction === 'down' ? 0 : 100,
@@ -268,11 +273,17 @@ export class PositionTracker {
         break;
       default:
         // Already stopped or unknown — nothing to do
-        return;
+        return null;
     }
 
     this.log(`${describeState(prev)} -> ${describeState(this.state)} (complete)`);
     this.save();
+
+    if (pendingTarget !== undefined) {
+      return this.startMovement(pendingTarget);
+    }
+
+    return null;
   }
 
   /**
@@ -293,18 +304,19 @@ export class PositionTracker {
    * Begin a calibration move in the given direction.
    * Returns a movement plan for full travel + extra time.
    */
-  startCalibration(direction: 'up' | 'down'): MovementPlan {
+  startCalibration(direction: 'up' | 'down', pendingTarget?: number): MovementPlan {
     const travelTimeSec = direction === 'up'
       ? this.config.travelTimeUpSec
       : this.config.travelTimeDownSec;
     const durationMs = (travelTimeSec + this.config.calibrationExtraSec) * 1000;
 
     const prev = this.state;
-    this.state = {
+    const nextState: CalibratingState = {
       phase: 'calibrating',
       direction,
       startedAt: this.now(),
     };
+    this.state = pendingTarget === undefined ? nextState : { ...nextState, pendingTarget };
     this.log(`${describeState(prev)} -> ${describeState(this.state)} (${durationMs}ms)`);
 
     return { direction, durationMs, isCalibration: true };

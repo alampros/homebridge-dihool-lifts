@@ -254,10 +254,23 @@ export class EWeLinkCloud {
           const extra = itemData.extra as Record<string, unknown> | undefined;
 
           if (extra?.uiid !== undefined) {
+            const deviceId = this.getRequiredString(itemData, 'deviceid');
+            const name = this.getRequiredString(itemData, 'name') ?? deviceId ?? 'Unnamed device';
+            const lanKey = this.getRequiredString(itemData, 'devicekey') ?? this.getRequiredString(itemData, 'apikey');
+
+            if (!deviceId || !lanKey) {
+              this.log.warn(
+                '[eWeLink Cloud] Skipping malformed device "%s": missing %s',
+                name,
+                !deviceId && !lanKey ? 'device ID and LAN key' : !deviceId ? 'device ID' : 'LAN key (devicekey/apikey)',
+              );
+              continue;
+            }
+
             devices.push({
-              deviceid: String(itemData.deviceid),
-              name: String(itemData.name),
-              devicekey: String(itemData.devicekey || itemData.apikey),
+              deviceid: deviceId,
+              name,
+              devicekey: lanKey,
               uiid: Number(extra.uiid),
               model: String(extra.model || itemData.productModel || ''),
               params: (itemData.params as Record<string, unknown>) || {},
@@ -284,6 +297,16 @@ export class EWeLinkCloud {
 
   private generateSignature(body: string): string {
     return createHmac('sha256', EWELINK_APP_SECRET).update(body).digest('base64');
+  }
+
+  private getRequiredString(data: Record<string, unknown>, key: string): string | undefined {
+    const value = data[key];
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
   }
 
   private async fetchWithRetry<T>(

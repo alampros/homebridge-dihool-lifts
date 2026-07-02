@@ -84,8 +84,8 @@ export interface LanDeviceInfo {
  * Per-device configuration from config.json.
  */
 export interface DeviceConfig {
-  /** eWeLink device ID. */
-  deviceId: string;
+  /** eWeLink device ID. Required for manual/LAN-only devices. Optional for a single cloud-discovered lift override. */
+  deviceId?: string;
   /** Optional display label (overrides cloud name). */
   label?: string;
   /** Full travel time in seconds going up (0% → 100%). Default: 8. */
@@ -102,8 +102,6 @@ export interface DeviceConfig {
   upChannel?: number;
   /** Outlet index for the "down" direction (default: 1). */
   downChannel?: number;
-  /** Whether to expose extra debug switches in HomeKit (default: false). */
-  showDebugSwitches?: boolean;
 }
 
 /**

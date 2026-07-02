@@ -1,6 +1,6 @@
 # homebridge-dihool-lifts
 
-Homebridge plugin for [DIHOOL](https://www.dihool.com/) IPS-S2 scissor lifts. Exposes the lift as a HomeKit garage door opener -- open raises, close lowers, tap mid-travel to stop.
+Homebridge plugin for [DIHOOL](https://www.dihool.com/) IPS-S2 scissor lifts. Exposes the lift as a HomeKit WindowCovering -- 0% lowers, 100% raises, and changing target position mid-travel stops or redirects the lift.
 
 Communicates via the eWeLink LAN protocol (AES-encrypted commands over your local network). Cloud login is only used once to discover devices; all control is LAN-only after that.
 
@@ -50,14 +50,19 @@ Use the Homebridge Config UI for a guided setup, or see `config.schema.json` for
 
 ### Per-device options
 
+For manual / LAN-only devices, each `devices` entry must include `deviceId` and `lanKey`. With cloud discovery, devices are found automatically; `devices` entries are only needed for overrides. If you have exactly one cloud-discovered lift, you may omit `deviceId` from a single override entry and it will apply to that lift.
+
 | Option | Default | Description |
 |--------|---------|-------------|
-| `operationTimeUp` | 25 | Seconds for full upward travel |
-| `operationTimeDown` | 20 | Seconds for full downward travel |
+| `deviceId` | | eWeLink device ID. Required for manual/LAN-only devices and for matching overrides when multiple lifts are discovered |
+| `lanKey` | | Device encryption key. Required for manual/LAN-only devices; cloud discovery supplies it automatically |
+| `label` | Device ID or cloud name | Custom HomeKit display name |
+| `operationTimeUp` | 8 | Seconds for full upward travel |
+| `operationTimeDown` | 8 | Seconds for full downward travel |
+| `calibrationExtra` | 2 | Extra seconds added to calibration moves so the physical limit switch is reached |
 | `upChannel` | 0 | eWeLink outlet index for UP |
 | `downChannel` | 1 | eWeLink outlet index for DOWN |
 | `ipAddress` | | Manual IP (skips mDNS discovery) |
-| `showDebugSwitches` | false | Expose raw channel switches |
 
 ### Getting the LAN key
 

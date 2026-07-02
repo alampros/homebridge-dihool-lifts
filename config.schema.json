@@ -42,7 +42,7 @@
           { "title": "Auto (cloud discovery + LAN control)", "enum": ["auto"] },
           { "title": "LAN Only (requires manual device config)", "enum": ["lan"] }
         ],
-        "description": "In 'auto' mode, the plugin logs into eWeLink to discover devices, then controls them over LAN. In 'lan' mode, no cloud connection is made."
+        "description": "In 'auto' mode, the plugin logs into eWeLink to discover devices, then controls them over LAN. In 'lan' mode, no cloud connection is made and each device entry must include a Device ID and LAN Key."
       },
       "debug": {
         "title": "Debug Logging",
@@ -53,14 +53,14 @@
       "devices": {
         "title": "Lift Devices",
         "type": "array",
-        "description": "Per-device configuration. If using cloud discovery, devices are found automatically — use this section to tune travel times and other settings.",
+        "description": "Per-device configuration. Manual/LAN-only devices require a Device ID and LAN Key. With cloud discovery, devices are found automatically; use this section for travel times and other overrides. If you have exactly one lift, the Device ID may be omitted.",
         "items": {
           "type": "object",
           "properties": {
             "deviceId": {
               "title": "Device ID",
               "type": "string",
-              "description": "The eWeLink device ID (e.g. 100293a98d). Found in the eWeLink app under device settings, or in the Homebridge log on startup.",
+              "description": "The eWeLink device ID (e.g. 100293a98d). Required for manual/LAN-only devices and for matching overrides when you have multiple cloud-discovered lifts. Found in the eWeLink app under device settings, or in the Homebridge log on startup.",
               "placeholder": "100293a98d"
             },
             "label": {
@@ -96,7 +96,7 @@
             "lanKey": {
               "title": "LAN Key",
               "type": "string",
-              "description": "Device encryption key. Only needed for LAN-only mode. Use the get-lankey script to obtain this.",
+              "description": "Device encryption key. Required for manual/LAN-only devices. Cloud-discovered devices get this automatically. Use the get-lankey script to obtain this.",
               "x-schema-form": {
                 "type": "password"
               }
@@ -124,8 +124,7 @@
               "maximum": 3,
               "description": "eWeLink outlet index for the DOWN motor control. Default: 1."
             }
-          },
-          "required": ["deviceId"]
+          }
         }
       }
     }

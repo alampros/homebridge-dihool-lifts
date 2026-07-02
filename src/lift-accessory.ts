@@ -24,13 +24,13 @@ import { DEFAULTS } from './utils/constants.js';
  *
  * Position is estimated via timer-based tracking: we know the full travel
  * time and integrate elapsed motor run-time to approximate position.
- * Commanding 0% or 100% runs the motor for full travel + extra time,
- * letting the physical limit switches stop the motor and recalibrating
+ * Commanding 0% runs the motor for full downward travel + extra time,
+ * letting the physical limit switch stop the motor and recalibrating
  * the position estimate (correcting drift).
  *
  * On first boot (or after a crash during movement), position is unknown.
- * The first user command triggers a calibration move (the tracker decides
- * direction based on whether target is <= 50 or > 50).
+ * The first non-zero user command calibrates down first, then continues
+ * to the requested target.
  */
 export class LiftAccessory {
   private readonly platform: DihoolLiftsPlatform;
@@ -294,7 +294,20 @@ export class LiftAccessory {
       this.log.info('[%s] Calibration complete — no stop pulse (limit switch stopped motor)', this.name);
     }
 
-    this.tracker.completeMovement();
+    const nextPlan = this.tracker.completeMovement();
+
+    if (nextPlan) {
+      const state = this.tracker.getState();
+      const nextTarget = state.phase === 'moving' ? state.to : this.tracker.getCurrentPosition() ?? 0;
+      this.log.info('[%s] Calibration complete — continuing to %d%%', this.name, Math.round(nextTarget));
+      try {
+        await this.executePlan(nextPlan, nextTarget);
+      } catch (err) {
+        await this.handleError(err);
+      }
+      return;
+    }
+
     this.inFlight = false;
     this.inFlightCalibration = false;
 
@@ -382,11 +395,9 @@ export class LiftAccessory {
    * The device's inching mode auto-reverts the switch after the pulse.
    */
   private async pulseChannel(channel: number): Promise<void> {
-    const switches = Array.from({ length: 4 }, (_, i) => ({
-      switch: (i === channel ? 'on' : 'off') as 'on' | 'off',
-      outlet: i,
-    }));
-    await this.platform.sendDeviceUpdate(this.accessory, { switches });
+    await this.platform.sendDeviceUpdate(this.accessory, {
+      switches: [{ switch: 'on', outlet: channel }],
+    });
   }
 
   // -----------------------------------------------------------------------

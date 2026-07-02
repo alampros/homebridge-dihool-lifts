@@ -107,6 +107,12 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
     if (this.config.devices) {
       for (const cfg of this.config.devices) {
         if (!cfg.deviceId || !cfg.lanKey) {
+          if (this.config.mode === 'lan' || cfg.deviceId || cfg.lanKey) {
+            this.log.warn(
+              'Skipping manual device config: %s',
+              !cfg.deviceId && !cfg.lanKey ? 'missing deviceId and lanKey' : !cfg.deviceId ? 'missing deviceId' : 'missing lanKey',
+            );
+          }
           continue;
         }
         deviceMap.set(cfg.deviceId, {
