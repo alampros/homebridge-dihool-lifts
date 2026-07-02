@@ -88,10 +88,12 @@ export interface DeviceConfig {
   deviceId: string;
   /** Optional display label (overrides cloud name). */
   label?: string;
-  /** Time in seconds to run the motor when moving up (default: 25). */
+  /** Full travel time in seconds going up (0% → 100%). Default: 8. */
   operationTimeUp?: number;
-  /** Time in seconds to run the motor when moving down (default: 20). */
+  /** Full travel time in seconds going down (100% → 0%). Default: 8. */
   operationTimeDown?: number;
+  /** Extra seconds to add on calibration moves (0% / 100%) to ensure limit switch is hit. Default: 2. */
+  calibrationExtra?: number;
   /** Manual IP address override (skips mDNS discovery for this device). */
   ipAddress?: string;
   /** Manual lanKey override (skips cloud login for this device). */

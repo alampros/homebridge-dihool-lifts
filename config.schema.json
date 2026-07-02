@@ -87,18 +87,26 @@
             "operationTimeUp": {
               "title": "Up Travel Time (seconds)",
               "type": "number",
-              "default": 25,
-              "minimum": 5,
+              "default": 8,
+              "minimum": 1,
               "maximum": 120,
-              "description": "Time in seconds for the lift to travel from fully down to fully up."
+              "description": "Full travel time in seconds from fully down (0%) to fully up (100%). Used for timer-based position estimation."
             },
             "operationTimeDown": {
               "title": "Down Travel Time (seconds)",
               "type": "number",
-              "default": 20,
-              "minimum": 5,
+              "default": 8,
+              "minimum": 1,
               "maximum": 120,
-              "description": "Time in seconds for the lift to travel from fully up to fully down."
+              "description": "Full travel time in seconds from fully up (100%) to fully down (0%). Used for timer-based position estimation."
+            },
+            "calibrationExtra": {
+              "title": "Calibration Extra Time (seconds)",
+              "type": "number",
+              "default": 2,
+              "minimum": 0,
+              "maximum": 10,
+              "description": "Extra seconds added when commanding 0% or 100%, ensuring the motor hits the physical limit switch for position recalibration."
             },
             "upChannel": {
               "title": "Up Channel",
@@ -164,6 +172,7 @@
             "devices[].ipAddress",
             "devices[].operationTimeUp",
             "devices[].operationTimeDown",
+            "devices[].calibrationExtra",
             "devices[].upChannel",
             "devices[].downChannel",
             "devices[].showDebugSwitches"

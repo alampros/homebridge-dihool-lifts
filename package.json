@@ -31,6 +31,8 @@
     "watch": "tsc --watch",
     "prepublishOnly": "npm run build",
     "lint": "oxlint src/ && tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "dev": "npm run build && homebridge -D -U ./.homebridge-dev -P ."
   },
   "devDependencies": {
@@ -38,7 +40,8 @@
     "@types/node": "^22.0.0",
     "homebridge": "^2.0.0",
     "oxlint": "^1.72.0",
-    "typescript": "^7.0.1-rc"
+    "typescript": "^7.0.1-rc",
+    "vitest": "^4.1.9"
   },
   "packageManager": "npm@11.18.0+sha512.4faecce0be70366d1c67b1012c4adc1246354a6cc45bf589f92003073b05518d547403df1475c542d67a4845e22b4fafcd7cac0af02c7a96cc6814f09eb003fb",
   "dependencies": {

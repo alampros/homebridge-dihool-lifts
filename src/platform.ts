@@ -195,7 +195,7 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
           firmware: device.firmware,
         };
 
-        accessory.category = this.api.hap.Categories.GARAGE_DOOR_OPENER;
+        accessory.category = this.api.hap.Categories.WINDOW_COVERING;
 
         const handler = new LiftAccessory(this, accessory);
         this.liftHandlers.set(device.deviceId, handler);

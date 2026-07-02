@@ -39,10 +39,12 @@ export const PARAMS_TO_KEEP = [
 
 /** Default configuration values */
 export const DEFAULTS = {
-  /** Seconds for lift to travel fully up */
-  operationTimeUp: 25,
-  /** Seconds for lift to travel fully down */
-  operationTimeDown: 20,
+  /** Seconds for lift to travel fully up (0% → 100%) */
+  operationTimeUp: 8,
+  /** Seconds for lift to travel fully down (100% → 0%) */
+  operationTimeDown: 8,
+  /** Extra seconds on calibration moves to ensure physical limit is hit */
+  calibrationExtra: 2,
   /** eWeLink outlet index for the UP motor channel */
   upChannel: 0,
   /** eWeLink outlet index for the DOWN motor channel */
