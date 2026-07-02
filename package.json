@@ -2,7 +2,7 @@
   "name": "homebridge-dihool-lifts",
   "displayName": "Homebridge DIHOOL Lifts",
   "type": "module",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Homebridge plugin to control DIHOOL IPS-S2 scissor lifts via the eWeLink LAN protocol.",
   "author": "Aaron Lampros",
   "license": "MIT",
