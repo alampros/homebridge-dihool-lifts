@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.4](https://github.com/alampros/homebridge-dihool-lifts/compare/homebridge-dihool-lifts-v0.1.3...homebridge-dihool-lifts-v0.1.4) (2026-07-02)
+
+
+### Bug Fixes
+
+* **config:** reorder schema ([1589b6f](https://github.com/alampros/homebridge-dihool-lifts/commit/1589b6feb8d243afaab477e144fbe3adc7c9596e))
+* use first device found if lookup by id returns none ([2c4dbec](https://github.com/alampros/homebridge-dihool-lifts/commit/2c4dbec88c542691a7f41451c60b668778e640f3))
+
 ## [0.1.3](https://github.com/alampros/homebridge-dihool-lifts/compare/homebridge-dihool-lifts-v0.1.2...homebridge-dihool-lifts-v0.1.3) (2026-07-02)
 
 
