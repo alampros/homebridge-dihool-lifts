@@ -59,37 +59,67 @@ export class EWeLinkLAN {
       }
     }
 
-    // Create a temporary mDNS instance for discovery
-    const mdns = multicastDns();
+    // Create a temporary mDNS instance for initial discovery
+    let mdns: ReturnType<typeof multicastDns>;
+    try {
+      mdns = multicastDns();
+    } catch (err) {
+      this.log.warn(
+        '[LAN] Failed to create mDNS socket for discovery: %s',
+        err instanceof Error ? err.message : String(err),
+      );
+      return this.deviceMap;
+    }
 
     await new Promise<void>((resolve) => {
-      setTimeout(() => {
+      const cleanup = () => {
         mdns.removeAllListeners('response');
+        mdns.removeAllListeners('error');
         mdns.destroy();
         resolve();
-      }, 5000);
+      };
+
+      const timer = setTimeout(cleanup, 5000);
+
+      mdns.on('error', (err: Error) => {
+        this.log.warn('[LAN] mDNS discovery error: %s', err.message);
+        clearTimeout(timer);
+        cleanup();
+      });
 
       mdns.on('response', (response) => {
-        this.processDiscoveryResponse(response);
+        this.processResponseRecords(response);
       });
 
       // Query for eWeLink PTR records
       mdns.query([{ name: MDNS_PTR_NAME, type: 'PTR' }]);
     });
 
+    // Log what we found
+    const discovered = [...this.deviceMap.entries()]
+      .filter(([, info]) => info.ip)
+      .map(([id, info]) => `${id}@${info.ip}${info.ipOverride ? ' (manual)' : ''}`);
+    if (discovered.length > 0) {
+      this.log.info('[LAN] Discovered devices: %s', discovered.join(', '));
+    } else {
+      this.log.warn('[LAN] No device IPs discovered via mDNS. Devices with manual IP overrides may still work.');
+    }
+
     return this.deviceMap;
   }
 
   /**
-   * Parse a discovery response to extract device IDs and IPs.
+   * Process all record types from an mDNS response to extract device IPs
+   * and update the device map. Used by both initial discovery and the
+   * ongoing monitor.
    */
-  private processDiscoveryResponse(response: multicastDns.ResponsePacket): void {
+  private processResponseRecords(response: multicastDns.ResponsePacket): void {
     const allRecords = [
       ...(response.answers ?? []),
       ...(response.additionals ?? []),
     ];
 
-    // Collect SRV/A records to map hostnames to IPs
+    // Collect A records: hostname → IP
     const hostToIp = new Map<string, string>();
     for (const record of allRecords) {
       if (record.type === 'A') {
@@ -97,7 +127,16 @@ export class EWeLinkLAN {
       }
     }
 
-    // Look for PTR records pointing to eWeLink devices
+    // Collect SRV records: service name → target hostname
+    const srvTargets = new Map<string, string>();
+    for (const record of allRecords) {
+      if (record.type === 'SRV') {
+        const srvData = record.data as { target: string };
+        srvTargets.set(record.name, srvData.target);
+      }
+    }
+
+    // Process PTR records to find eWeLink devices
     for (const record of allRecords) {
       if (record.type === 'PTR' && record.name.includes('_ewelink')) {
         const ptr = record.data as string;
@@ -107,58 +146,77 @@ export class EWeLinkLAN {
 
         if (!deviceId) continue;
 
-        // Try to find the IP from SRV → A record chain
-        const srvRecord = allRecords.find(
-          (r) => r.type === 'SRV' && r.name === ptr,
-        );
+        // Resolve IP: PTR → SRV target → A record
         let ip: string | undefined;
-        if (srvRecord && srvRecord.type === 'SRV') {
-          const srvData = srvRecord.data as { target: string };
-          ip = hostToIp.get(srvData.target);
+        const srvTarget = srvTargets.get(ptr);
+        if (srvTarget) {
+          ip = hostToIp.get(srvTarget);
         }
-
-        // Fallback: check A records for the device hostname
+        // Fallback: check A records for the device hostname directly
         if (!ip) {
-          const deviceHost = `eWeLink_${deviceId}.local`;
-          ip = hostToIp.get(deviceHost);
+          ip = hostToIp.get(`eWeLink_${deviceId}.local`);
         }
 
-        if (ip && !this.deviceMap.has(deviceId)) {
-          this.deviceMap.set(deviceId, { ip, ipOverride: false });
-          if (this.debug) {
-            this.log.debug('[LAN] Discovered %s at %s', deviceId, ip);
-          }
-        } else if (ip) {
-          const info = this.deviceMap.get(deviceId)!;
-          if (!info.ipOverride) {
-            info.ip = ip;
-          }
+        if (ip) {
+          this.updateDeviceIp(deviceId, ip);
         }
       }
+    }
 
-      // Also extract device IDs from TXT records (which include the id field)
-      if (record.type === 'TXT' && record.name.includes('_ewelink')) {
-        const txt = this.parseTxtData(record.data);
-        if (txt?.id) {
-          // We may not have the IP from this record alone, but we know the device exists
-          if (!this.deviceMap.has(txt.id)) {
-            this.deviceMap.set(txt.id, { ipOverride: false });
-          }
-        }
+    // Also try to extract IPs from A records matching the eWeLink_<id>.local pattern
+    for (const [hostname, ip] of hostToIp) {
+      const match = hostname.match(/^eWeLink_(\w+)\.local$/);
+      if (match?.[1]) {
+        this.updateDeviceIp(match[1], ip);
       }
+    }
+  }
+
+  /**
+   * Update a device's IP in the map (unless manually overridden).
+   */
+  private updateDeviceIp(deviceId: string, ip: string): void {
+    const existing = this.deviceMap.get(deviceId);
+    if (!existing) {
+      this.deviceMap.set(deviceId, { ip, ipOverride: false });
+      this.log.info('[LAN] Discovered %s at %s', deviceId, ip);
+    } else if (!existing.ipOverride && existing.ip !== ip) {
+      const oldIp = existing.ip;
+      existing.ip = ip;
+      this.log.info('[LAN] Updated %s: %s → %s', deviceId, oldIp ?? 'none', ip);
+    } else if (!existing.ipOverride && !existing.ip) {
+      existing.ip = ip;
+      this.log.info('[LAN] Resolved %s at %s', deviceId, ip);
     }
   }
 
   /**
    * Start listening for mDNS state broadcasts from eWeLink devices.
    *
-   * Creates a persistent mDNS listener that decrypts TXT record
-   * payloads and emits 'update' events on state changes.
+   * Creates a persistent mDNS listener that:
+   * 1. Extracts device IPs from A/SRV records (keeping IPs fresh)
+   * 2. Decrypts TXT record payloads and emits state change events
    */
   async startMonitor(): Promise<void> {
-    this.mdns = multicastDns();
+    try {
+      this.mdns = multicastDns();
+    } catch (err) {
+      this.log.error(
+        '[LAN] Failed to create mDNS socket for monitoring: %s. LAN control will not work.',
+        err instanceof Error ? err.message : String(err),
+      );
+      return;
+    }
+
+    this.mdns.on('error', (err: Error) => {
+      this.log.warn('[LAN] mDNS monitor error: %s', err.message);
+    });
 
     this.mdns.on('response', (response) => {
+      // Always process A/SRV/PTR records to keep IPs current
+      this.processResponseRecords(response);
+
+      // Process TXT records for state updates
       const allRecords = [
         ...(response.answers ?? []),
         ...(response.additionals ?? []),
@@ -178,10 +236,6 @@ export class EWeLinkLAN {
         // Deduplicate by IV
         if (txt.iv === info.lastIV) continue;
         info.lastIV = txt.iv;
-
-        // Update IP if it changed
-        // response object doesn't directly carry the sender IP in multicast-dns,
-        // but SRV/A records in additionals might
 
         // Concatenate encrypted data fragments
         const data = [txt.data1, txt.data2, txt.data3, txt.data4]
@@ -226,26 +280,39 @@ export class EWeLinkLAN {
       }
     });
 
-    this.log.info('LAN monitoring started.');
+    this.log.info('[LAN] Monitoring started.');
   }
 
   /**
    * Send an encrypted command to a device over the LAN.
-   * Retries up to 10 times on ECONNRESET.
+   *
+   * If the device IP is unknown, fires a one-shot mDNS query and waits
+   * up to 3 seconds for discovery before giving up. Retries up to 10
+   * times on ECONNRESET.
    */
   async sendUpdate(deviceId: string, params: DeviceParams): Promise<boolean> {
     const info = this.deviceMap.get(deviceId);
-    if (!info?.ip || !info?.lanKey) {
-      this.log.warn('[LAN] Cannot send to %s: ip=%s lanKey=%s', deviceId, info?.ip ?? 'none', info?.lanKey ? 'set' : 'none');
+    if (!info?.lanKey) {
+      this.log.warn('[LAN] Cannot send to %s: no lanKey', deviceId);
+      return false;
+    }
+
+    // If we don't have an IP, try a quick mDNS re-query
+    if (!info.ip) {
+      this.log.info('[LAN] No IP for %s — sending mDNS query...', deviceId);
+      await this.reQueryDevice(deviceId);
+    }
+
+    if (!info.ip) {
+      this.log.warn('[LAN] Cannot send to %s: ip not discovered', deviceId);
       return false;
     }
 
     const { encryptedData, iv } = this.encryptData(params, info.lanKey);
     const url = `http://${info.ip}:${EWELINK_LAN_PORT}/zeroconf/switches`;
 
-    if (this.debug) {
-      this.log.debug('[LAN] Sending to %s → %s', deviceId, url);
-    }
+    this.log.info('[LAN] Sending to %s → %s', deviceId, url);
+
     const body = JSON.stringify({
       deviceid: deviceId,
       data: encryptedData,
@@ -315,6 +382,34 @@ export class EWeLinkLAN {
   }
 
   // -- Private helpers --------------------------------------------------
+
+  /**
+   * Fire a one-shot mDNS query to try to resolve a device's IP.
+   * Waits up to 3 seconds for a response.
+   */
+  private async reQueryDevice(deviceId: string): Promise<void> {
+    const mdns = this.mdns;
+    if (!mdns) return;
+
+    return new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        resolve();
+      }, 3000);
+
+      const onResponse = (response: multicastDns.ResponsePacket) => {
+        this.processResponseRecords(response);
+        const info = this.deviceMap.get(deviceId);
+        if (info?.ip) {
+          clearTimeout(timer);
+          mdns.removeListener('response', onResponse);
+          resolve();
+        }
+      };
+
+      mdns.on('response', onResponse);
+      mdns.query([{ name: MDNS_PTR_NAME, type: 'PTR' }]);
+    });
+  }
 
   /**
    * Send an HTTP POST using node:http.
