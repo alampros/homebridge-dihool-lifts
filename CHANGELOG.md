@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.5](https://github.com/alampros/homebridge-dihool-lifts/compare/v0.1.4...v0.1.5) (2026-07-02)
+
+
+### Bug Fixes
+
+* config schema changes ([771e2ad](https://github.com/alampros/homebridge-dihool-lifts/commit/771e2ad9886f4518a80caf23f2a9ff6782745cb2))
+* **config:** require a device id ([1825f88](https://github.com/alampros/homebridge-dihool-lifts/commit/1825f880e858acc1ebac0290e2e697b054feafd0))
+* remove package name from tag versions ([ff8d805](https://github.com/alampros/homebridge-dihool-lifts/commit/ff8d8050c9c73f26e6bf9764812a73749bc47c62))
+
 ## [0.1.4](https://github.com/alampros/homebridge-dihool-lifts/compare/homebridge-dihool-lifts-v0.1.3...homebridge-dihool-lifts-v0.1.4) (2026-07-02)
 
 
