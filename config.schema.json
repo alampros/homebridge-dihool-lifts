@@ -72,26 +72,26 @@
             "operationTimeUp": {
               "title": "Raise Time (seconds)",
               "type": "number",
-              "default": 8,
+              "placeholder": "15",
               "minimum": 1,
               "maximum": 120,
-              "description": "How long the motor runs to go from fully down (0%) to fully up (100%). Time this with a stopwatch for accuracy."
+              "description": "How long the motor runs to go from fully down (0%) to fully up (100%). Time this with a stopwatch for accuracy. Default: 8s."
             },
             "operationTimeDown": {
               "title": "Lower Time (seconds)",
               "type": "number",
-              "default": 8,
+              "placeholder": "16",
               "minimum": 1,
               "maximum": 120,
-              "description": "How long the motor runs to go from fully up (100%) to fully down (0%)."
+              "description": "How long the motor runs to go from fully up (100%) to fully down (0%). Default: 8s."
             },
             "calibrationExtra": {
               "title": "Calibration Padding (seconds)",
               "type": "number",
-              "default": 2,
+              "placeholder": "2",
               "minimum": 0,
               "maximum": 10,
-              "description": "Extra seconds added when lowering to 0% to ensure the motor hits the bottom limit switch. This recalibrates the position estimate."
+              "description": "Extra seconds added when lowering to 0% to ensure the motor hits the bottom limit switch. Default: 2s."
             },
             "lanKey": {
               "title": "LAN Key",
@@ -111,18 +111,18 @@
             "upChannel": {
               "title": "Up Channel",
               "type": "integer",
-              "default": 0,
+              "placeholder": "0",
               "minimum": 0,
               "maximum": 3,
-              "description": "eWeLink outlet index for the UP motor control."
+              "description": "eWeLink outlet index for the UP motor control. Default: 0."
             },
             "downChannel": {
               "title": "Down Channel",
               "type": "integer",
-              "default": 1,
+              "placeholder": "1",
               "minimum": 0,
               "maximum": 3,
-              "description": "eWeLink outlet index for the DOWN motor control."
+              "description": "eWeLink outlet index for the DOWN motor control. Default: 1."
             }
           }
         }
@@ -144,6 +144,7 @@
       "title": "Lift Devices",
       "expandable": true,
       "expanded": true,
+      "startEmpty": true,
       "buttonText": "Add Lift",
       "items": [
         "devices[].deviceId",
