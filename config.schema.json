@@ -124,7 +124,8 @@
               "maximum": 3,
               "description": "eWeLink outlet index for the DOWN motor control. Default: 1."
             }
-          }
+          },
+          "required": ["deviceId"]
         }
       }
     }
