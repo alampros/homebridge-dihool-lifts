@@ -75,7 +75,7 @@
               "placeholder": "15",
               "minimum": 1,
               "maximum": 120,
-              "description": "How long the motor runs to go from fully down (0%) to fully up (100%). Time this with a stopwatch for accuracy. Default: 8s."
+              "description": "How long the motor runs to go from fully down (0%) to fully up (100%). Used only for the HomeKit status indicator timing. Time this with a stopwatch for accuracy. Default: 8s."
             },
             "operationTimeDown": {
               "title": "Lower Time (seconds)",
@@ -83,15 +83,7 @@
               "placeholder": "16",
               "minimum": 1,
               "maximum": 120,
-              "description": "How long the motor runs to go from fully up (100%) to fully down (0%). Default: 8s."
-            },
-            "calibrationExtra": {
-              "title": "Calibration Padding (seconds)",
-              "type": "number",
-              "placeholder": "2",
-              "minimum": 0,
-              "maximum": 10,
-              "description": "Extra seconds added when lowering to 0% to ensure the motor hits the bottom limit switch. Default: 2s."
+              "description": "How long the motor runs to go from fully up (100%) to fully down (0%). Used only for the HomeKit status indicator timing. Default: 8s."
             },
             "lanKey": {
               "title": "LAN Key",
@@ -156,8 +148,7 @@
           "expandable": false,
           "items": [
             "devices[].operationTimeUp",
-            "devices[].operationTimeDown",
-            "devices[].calibrationExtra"
+            "devices[].operationTimeDown"
           ]
         },
         {

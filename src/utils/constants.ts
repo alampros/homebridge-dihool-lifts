@@ -43,8 +43,6 @@ export const DEFAULTS = {
   operationTimeUp: 8,
   /** Seconds for lift to travel fully down (100% → 0%) */
   operationTimeDown: 8,
-  /** Extra seconds on calibration moves to ensure physical limit is hit */
-  calibrationExtra: 2,
   /** eWeLink outlet index for the UP motor channel */
   upChannel: 0,
   /** eWeLink outlet index for the DOWN motor channel */
