@@ -100,6 +100,8 @@ export interface DeviceConfig {
   upChannel?: number;
   /** Outlet index for the "down" direction (default: 1). */
   downChannel?: number;
+  /** Expose Manual Up / Manual Down switches that send raw pulses, bypassing state tracking. */
+  manualSwitches?: boolean;
 }
 
 /**

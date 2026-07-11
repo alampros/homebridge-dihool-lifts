@@ -115,6 +115,12 @@
               "minimum": 0,
               "maximum": 3,
               "description": "eWeLink outlet index for the DOWN motor control. Default: 1."
+            },
+            "manualSwitches": {
+              "title": "Manual Override Switches",
+              "type": "boolean",
+              "default": false,
+              "description": "Expose Manual Up and Manual Down switches that send raw motor pulses, bypassing state tracking. Useful for recovering from state mismatches or manual control."
             }
           }
         }
@@ -161,7 +167,8 @@
             "devices[].lanKey",
             "devices[].ipAddress",
             "devices[].upChannel",
-            "devices[].downChannel"
+            "devices[].downChannel",
+            "devices[].manualSwitches"
           ]
         }
       ]

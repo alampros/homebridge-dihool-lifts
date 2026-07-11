@@ -43,6 +43,8 @@ export class LiftAccessory {
   private readonly tracker: LiftStateTracker;
   private coveringService: Service;
 
+  private readonly manualSwitches: boolean;
+
   private isOnline = true;
   private cosmeticTimer: NodeJS.Timeout | undefined;
   private pendingOperation: Promise<void> = Promise.resolve();
@@ -69,6 +71,7 @@ export class LiftAccessory {
     const deviceConfig = platform.getDeviceConfig(this.deviceId);
     this.upChannel = deviceConfig?.upChannel ?? DEFAULTS.upChannel;
     this.downChannel = deviceConfig?.downChannel ?? DEFAULTS.downChannel;
+    this.manualSwitches = deviceConfig?.manualSwitches ?? false;
     this.debug = (platform.config as { debug?: boolean }).debug ?? false;
 
     const operationTimeUp = deviceConfig?.operationTimeUp ?? DEFAULTS.operationTimeUp;
@@ -132,11 +135,76 @@ export class LiftAccessory {
         return this.tracker.getPosition();
       });
 
+    // Manual override switches — raw pulses that bypass state tracking
+    this.configureManualSwitches();
+
     this.log.info(
       '[%s] Initialised (up=CH%d, down=CH%d, timeUp=%ds, timeDown=%ds, position=%d%%)',
       this.name, this.upChannel, this.downChannel,
       operationTimeUp, operationTimeDown, pos,
     );
+  }
+
+  // -----------------------------------------------------------------------
+  // Manual override switches
+  // -----------------------------------------------------------------------
+
+  private configureManualSwitches(): void {
+    const SUBTYPE_UP = 'manual-up';
+    const SUBTYPE_DOWN = 'manual-down';
+
+    if (!this.manualSwitches) {
+      // Remove manual switch services if they exist from a previous config
+      for (const subtype of [SUBTYPE_UP, SUBTYPE_DOWN]) {
+        const existing = this.accessory.getServiceById(this.Service.Switch, subtype);
+        if (existing) {
+          this.accessory.removeService(existing);
+        }
+      }
+      return;
+    }
+
+    // Manual Up switch
+    const upSwitch =
+      this.accessory.getServiceById(this.Service.Switch, SUBTYPE_UP) ??
+      this.accessory.addService(this.Service.Switch, 'Manual Up', SUBTYPE_UP);
+    upSwitch.setCharacteristic(this.Characteristic.Name, 'Manual Up');
+    upSwitch.getCharacteristic(this.Characteristic.On)
+      .onSet(async (value: CharacteristicValue) => {
+        if (!value) return; // ignore off
+        this.log.info('[%s] Manual UP pulse (CH%d)', this.name, this.upChannel);
+        try {
+          await this.pulseChannel(this.upChannel);
+        } catch (err) {
+          this.log.warn('[%s] Manual UP failed: %s', this.name, err instanceof Error ? err.message : String(err));
+        }
+        // Flip back to off (momentary)
+        setTimeout(() => {
+          upSwitch.updateCharacteristic(this.Characteristic.On, false);
+        }, 500);
+      })
+      .onGet(() => false);
+
+    // Manual Down switch
+    const downSwitch =
+      this.accessory.getServiceById(this.Service.Switch, SUBTYPE_DOWN) ??
+      this.accessory.addService(this.Service.Switch, 'Manual Down', SUBTYPE_DOWN);
+    downSwitch.setCharacteristic(this.Characteristic.Name, 'Manual Down');
+    downSwitch.getCharacteristic(this.Characteristic.On)
+      .onSet(async (value: CharacteristicValue) => {
+        if (!value) return; // ignore off
+        this.log.info('[%s] Manual DOWN pulse (CH%d)', this.name, this.downChannel);
+        try {
+          await this.pulseChannel(this.downChannel);
+        } catch (err) {
+          this.log.warn('[%s] Manual DOWN failed: %s', this.name, err instanceof Error ? err.message : String(err));
+        }
+        // Flip back to off (momentary)
+        setTimeout(() => {
+          downSwitch.updateCharacteristic(this.Characteristic.On, false);
+        }, 500);
+      })
+      .onGet(() => false);
   }
 
   // -----------------------------------------------------------------------
