@@ -169,6 +169,9 @@ export class LiftAccessory {
       this.accessory.getServiceById(this.Service.Switch, SUBTYPE_UP) ??
       this.accessory.addService(this.Service.Switch, 'Manual Up', SUBTYPE_UP);
     upSwitch.setCharacteristic(this.Characteristic.Name, 'Manual Up');
+    if (this.Characteristic.ConfiguredName) {
+      upSwitch.setCharacteristic(this.Characteristic.ConfiguredName, 'Manual Up');
+    }
     upSwitch.getCharacteristic(this.Characteristic.On)
       .onSet(async (value: CharacteristicValue) => {
         if (!value) return; // ignore off
@@ -190,6 +193,9 @@ export class LiftAccessory {
       this.accessory.getServiceById(this.Service.Switch, SUBTYPE_DOWN) ??
       this.accessory.addService(this.Service.Switch, 'Manual Down', SUBTYPE_DOWN);
     downSwitch.setCharacteristic(this.Characteristic.Name, 'Manual Down');
+    if (this.Characteristic.ConfiguredName) {
+      downSwitch.setCharacteristic(this.Characteristic.ConfiguredName, 'Manual Down');
+    }
     downSwitch.getCharacteristic(this.Characteristic.On)
       .onSet(async (value: CharacteristicValue) => {
         if (!value) return; // ignore off
