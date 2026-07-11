@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.6](https://github.com/alampros/homebridge-dihool-lifts/compare/v0.1.5...v0.1.6) (2026-07-11)
+
+
+### Features
+
+* add optional manual override switches ([9613932](https://github.com/alampros/homebridge-dihool-lifts/commit/9613932225c7e4cb7bbb233ab6b7094e7a522d65))
+* replace position estimation with binary state model ([0050ef6](https://github.com/alampros/homebridge-dihool-lifts/commit/0050ef684fc935e9a1dee927cf6f61d65606037e))
+
+
+### Bug Fixes
+
+* calibration after unknown position and more ([a4c801e](https://github.com/alampros/homebridge-dihool-lifts/commit/a4c801e989a87e1945717b644949d0e0bd78eee3))
+
 ## [0.1.5](https://github.com/alampros/homebridge-dihool-lifts/compare/v0.1.4...v0.1.5) (2026-07-02)
 
 
