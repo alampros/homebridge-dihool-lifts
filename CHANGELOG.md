@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/alampros/homebridge-dihool-lifts/compare/v0.1.6...v0.1.7) (2026-07-11)
+
+
+### Bug Fixes
+
+* use ConfiguredName for manual switches ([50835a3](https://github.com/alampros/homebridge-dihool-lifts/commit/50835a3d4ec07811dc3fa1fab6ee8ab3106212bc))
+
 ## [0.1.6](https://github.com/alampros/homebridge-dihool-lifts/compare/v0.1.5...v0.1.6) (2026-07-11)
 
 
