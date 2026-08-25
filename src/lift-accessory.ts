@@ -174,6 +174,14 @@ export class LiftAccessory {
     if (status && !status.sensorTimeout) {
       this.esp32Position = this.positionFromDistance(status.distanceMm);
       this.coveringService.updateCharacteristic(this.Characteristic.CurrentPosition, this.esp32Position);
+      // Until motor-direction sensing is installed, the distance sensor is our
+      // only source of actual state. Clear the legacy timer-based movement
+      // indicator so HomeKit renders the measured percentage instead of a
+      // perpetual Open/Close spinner.
+      this.coveringService.updateCharacteristic(
+        this.Characteristic.PositionState,
+        this.Characteristic.PositionState.STOPPED,
+      );
       if (this.esp32Available !== true) {
         this.log.info(
           '[%s] LiftSense ESP32 connected (distance=%d mm, position=%d%%)',
