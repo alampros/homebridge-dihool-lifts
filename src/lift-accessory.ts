@@ -113,6 +113,15 @@ export class LiftAccessory {
       this.accessory.getService(this.Service.WindowCovering) ??
       this.accessory.addService(this.Service.WindowCovering);
 
+    // StatusActive is not part of the WindowCovering service definition and
+    // Home.app can render it as persistent activity. Remove it from cached
+    // accessories created by earlier plugin versions.
+    if (this.coveringService.testCharacteristic(this.Characteristic.StatusActive)) {
+      this.coveringService.removeCharacteristic(
+        this.coveringService.getCharacteristic(this.Characteristic.StatusActive),
+      );
+    }
+
     // Initialize characteristics from tracker state
     const pos = this.tracker.getPosition();
     this.coveringService.setCharacteristic(this.Characteristic.CurrentPosition, pos);
@@ -121,7 +130,6 @@ export class LiftAccessory {
       this.Characteristic.PositionState,
       this.Characteristic.PositionState.STOPPED,
     );
-    this.coveringService.setCharacteristic(this.Characteristic.StatusActive, true);
 
     // AccessoryInformation
     const infoService =
@@ -178,7 +186,6 @@ export class LiftAccessory {
 
   private handleEsp32Status(status: LiftSenseStatus | undefined, error?: Error): void {
     const active = !!status && !status.sensorTimeout;
-    this.coveringService.updateCharacteristic(this.Characteristic.StatusActive, active);
 
     if (status && !status.sensorTimeout) {
       const position = this.positionFromDistance(status.distanceMm);
@@ -191,7 +198,6 @@ export class LiftAccessory {
           this.invalidCalibrationLogged = true;
         }
         this.esp32Available = false;
-        this.coveringService.updateCharacteristic(this.Characteristic.StatusActive, false);
         return;
       }
 
