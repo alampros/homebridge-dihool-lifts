@@ -3,6 +3,7 @@ import type { DihoolLiftsPlatform } from './platform.js';
 import type { DeviceParams, AccessoryContext } from './types.js';
 import { LiftStateTracker } from './position-tracker.js';
 import { LiftSenseEsp32, type LiftSenseStatus } from './connection/liftsense-esp32.js';
+import { positionFromDistance } from './position-from-distance.js';
 import { DEFAULTS } from './utils/constants.js';
 
 /**
@@ -53,6 +54,7 @@ export class LiftAccessory {
   private esp32Client?: LiftSenseEsp32;
   private esp32Position?: number;
   private esp32Available?: boolean;
+  private invalidCalibrationLogged = false;
 
   constructor(platform: DihoolLiftsPlatform, accessory: PlatformAccessory<AccessoryContext>) {
     this.platform = platform;
@@ -133,10 +135,13 @@ export class LiftAccessory {
     this.coveringService
       .getCharacteristic(this.Characteristic.CurrentPosition)
       .onGet(() => {
+        if (this.esp32Available === true && this.esp32Position !== undefined) {
+          return this.esp32Position;
+        }
         if (!this.isOnline) {
           throw new this.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
         }
-        return this.esp32Position ?? this.tracker.getPosition();
+        return this.tracker.getPosition();
       });
 
     // Manual override switches — raw pulses that bypass state tracking
@@ -172,8 +177,23 @@ export class LiftAccessory {
     this.coveringService.updateCharacteristic(this.Characteristic.StatusActive, active);
 
     if (status && !status.sensorTimeout) {
-      this.esp32Position = this.positionFromDistance(status.distanceMm);
-      this.coveringService.updateCharacteristic(this.Characteristic.CurrentPosition, this.esp32Position);
+      const position = this.positionFromDistance(status.distanceMm);
+      if (position === undefined) {
+        if (!this.invalidCalibrationLogged) {
+          this.log.error(
+            '[%s] Invalid LiftSense calibration: maxDistanceMm must be greater than minDistanceMm',
+            this.name,
+          );
+          this.invalidCalibrationLogged = true;
+        }
+        this.esp32Available = false;
+        this.coveringService.updateCharacteristic(this.Characteristic.StatusActive, false);
+        return;
+      }
+
+      this.invalidCalibrationLogged = false;
+      this.esp32Position = position;
+      this.coveringService.updateCharacteristic(this.Characteristic.CurrentPosition, position);
       // Until motor-direction sensing is installed, the distance sensor is our
       // only source of actual state. Clear the legacy timer-based movement
       // indicator so HomeKit renders the measured percentage instead of a
@@ -185,11 +205,11 @@ export class LiftAccessory {
       if (this.esp32Available !== true) {
         this.log.info(
           '[%s] LiftSense ESP32 connected (distance=%d mm, position=%d%%)',
-          this.name, status.distanceMm, this.esp32Position,
+          this.name, status.distanceMm, position,
         );
       }
       if (this.esp32DebugLogging) {
-        this.log.info('[%s] ESP32 distance: %d mm → position: %d%%', this.name, status.distanceMm, this.esp32Position);
+        this.log.info('[%s] ESP32 distance: %d mm → position: %d%%', this.name, status.distanceMm, position);
       }
     } else if (this.esp32Available !== false) {
       const reason = error?.message ?? 'sensor timeout';
@@ -199,23 +219,30 @@ export class LiftAccessory {
     this.esp32Available = active;
   }
 
-  private positionFromDistance(distanceMm: number): number {
+  private positionFromDistance(distanceMm: number): number | undefined {
     const config = this.platform.getDeviceConfig(this.deviceId);
-    const raisedDistanceMm = config?.raisedDistanceMm ?? 150;
-    const loweredDistanceMm = config?.loweredDistanceMm ?? 1000;
-    const distanceDecreasesWhenRising = config?.distanceDecreasesWhenRising ?? true;
+    let minDistanceMm = config?.minDistanceMm;
+    let maxDistanceMm = config?.maxDistanceMm;
 
-    const span = distanceDecreasesWhenRising
-      ? loweredDistanceMm - raisedDistanceMm
-      : raisedDistanceMm - loweredDistanceMm;
-    if (span <= 0) {
-      return 0;
+    // Backward compatibility for configurations created before the endpoint
+    // names explicitly described the min/max distance contract.
+    if (minDistanceMm === undefined || maxDistanceMm === undefined) {
+      const raisedDistanceMm = config?.raisedDistanceMm ?? 150;
+      const loweredDistanceMm = config?.loweredDistanceMm ?? 1000;
+      const decreasesWhenRising = config?.distanceDecreasesWhenRising ?? true;
+      const legacyPosition = positionFromDistance(distanceMm, {
+        minDistanceMm: Math.min(raisedDistanceMm, loweredDistanceMm),
+        maxDistanceMm: Math.max(raisedDistanceMm, loweredDistanceMm),
+      });
+      return decreasesWhenRising || legacyPosition === undefined
+        ? legacyPosition
+        : 100 - legacyPosition;
     }
 
-    const position = distanceDecreasesWhenRising
-      ? ((loweredDistanceMm - distanceMm) / span) * 100
-      : ((distanceMm - loweredDistanceMm) / span) * 100;
-    return Math.round(Math.max(0, Math.min(100, position)));
+    return positionFromDistance(distanceMm, {
+      minDistanceMm,
+      maxDistanceMm,
+    });
   }
 
   // -----------------------------------------------------------------------
@@ -317,6 +344,9 @@ export class LiftAccessory {
       const binaryTarget = target >= 50 ? 100 : 0;
       const direction: 'up' | 'down' = binaryTarget === 100 ? 'up' : 'down';
 
+      // Motor decisions intentionally use only the existing command tracker.
+      // ESP32 distance data is read-only telemetry and must never cause a
+      // pulse, suppress a pulse, or otherwise control lift movement.
       const shouldPulse = this.tracker.startMovement(direction);
 
       if (!shouldPulse) {
@@ -351,12 +381,14 @@ export class LiftAccessory {
       this.cosmeticTimer = setTimeout(() => {
         this.tracker.completeMovement();
         const finalPos = this.tracker.getPosition();
-        this.coveringService.updateCharacteristic(this.Characteristic.CurrentPosition, finalPos);
-        this.coveringService.updateCharacteristic(this.Characteristic.TargetPosition, finalPos);
-        this.coveringService.updateCharacteristic(
-          this.Characteristic.PositionState,
-          this.Characteristic.PositionState.STOPPED,
-        );
+        if (this.esp32Available !== true) {
+          this.coveringService.updateCharacteristic(this.Characteristic.CurrentPosition, finalPos);
+          this.coveringService.updateCharacteristic(this.Characteristic.TargetPosition, finalPos);
+          this.coveringService.updateCharacteristic(
+            this.Characteristic.PositionState,
+            this.Characteristic.PositionState.STOPPED,
+          );
+        }
         this.log.info('[%s] Arrived at %d%%', this.name, finalPos);
       }, delayMs);
     } catch (err) {

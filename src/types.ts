@@ -106,11 +106,15 @@ export interface DeviceConfig {
   esp32PollIntervalSec?: number;
   /** Log each ESP32 sensor poll. Default: false. */
   esp32DebugLogging?: boolean;
-  /** Sensor distance in mm when the lift is fully raised. Default: 150. */
+  /** Minimum sensor distance in mm, at the fully raised (100%) position. Default: 150. */
+  minDistanceMm?: number;
+  /** Maximum sensor distance in mm, at the fully lowered (0%) position. Default: 1000. */
+  maxDistanceMm?: number;
+  /** @deprecated Use minDistanceMm. Sensor distance when fully raised. */
   raisedDistanceMm?: number;
-  /** Sensor distance in mm when the lift is fully lowered. Default: 1000. */
+  /** @deprecated Use maxDistanceMm. Sensor distance when fully lowered. */
   loweredDistanceMm?: number;
-  /** Whether the measured distance becomes smaller as the lift rises. Default: true. */
+  /** @deprecated Used only with legacy raised/lowered distance settings. */
   distanceDecreasesWhenRising?: boolean;
 }
 

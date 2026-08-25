@@ -133,27 +133,21 @@
               "default": false,
               "description": "Log every ESP32 distance reading and calculated position. Useful while calibrating; leave off during normal use."
             },
-            "raisedDistanceMm": {
-              "title": "Raised Distance (mm)",
+            "minDistanceMm": {
+              "title": "Minimum Distance (mm)",
               "type": "number",
               "default": 150,
               "minimum": 1,
               "maximum": 4000,
-              "description": "Sensor reading when the lift is fully raised. Default: 150 mm. Calibrate after mounting the sensor."
+              "description": "Minimum sensor reading, measured with the lift fully raised. This maps to 100%."
             },
-            "loweredDistanceMm": {
-              "title": "Lowered Distance (mm)",
+            "maxDistanceMm": {
+              "title": "Maximum Distance (mm)",
               "type": "number",
               "default": 1000,
               "minimum": 1,
               "maximum": 4000,
-              "description": "Sensor reading when the lift is fully lowered. Default: 1000 mm. Calibrate after mounting the sensor."
-            },
-            "distanceDecreasesWhenRising": {
-              "title": "Distance Decreases When Rising",
-              "type": "boolean",
-              "default": true,
-              "description": "Enable when the sensor is above the platform and the platform gets closer as it rises."
+              "description": "Maximum sensor reading, measured with the lift fully lowered. This maps to 0%."
             }
           }
         }
@@ -196,9 +190,8 @@
             "devices[].esp32Token",
             "devices[].esp32PollIntervalSec",
             "devices[].esp32DebugLogging",
-            "devices[].raisedDistanceMm",
-            "devices[].loweredDistanceMm",
-            "devices[].distanceDecreasesWhenRising"
+            "devices[].minDistanceMm",
+            "devices[].maxDistanceMm"
           ]
         }
       ]

@@ -9,6 +9,8 @@ export interface LiftSenseStatus {
 
 export class LiftSenseEsp32 {
   private timer?: NodeJS.Timeout;
+  private pollInProgress = false;
+  private resolvedHost?: string;
 
   constructor(
     private readonly host: string,
@@ -18,6 +20,7 @@ export class LiftSenseEsp32 {
   ) {}
 
   start(): void {
+    this.stop();
     void this.poll();
     this.timer = setInterval(() => void this.poll(), this.pollIntervalMs);
   }
@@ -30,10 +33,20 @@ export class LiftSenseEsp32 {
   }
 
   private async poll(): Promise<void> {
+    if (this.pollInProgress) {
+      return;
+    }
+
+    this.pollInProgress = true;
     try {
       this.onStatus(await this.getStatus());
     } catch (error) {
+      // Let mDNS resolve a fresh address after a failed request. This handles
+      // DHCP address changes without doing multicast discovery on every poll.
+      this.resolvedHost = undefined;
       this.onStatus(undefined, error instanceof Error ? error : new Error(String(error)));
+    } finally {
+      this.pollInProgress = false;
     }
   }
 
@@ -42,8 +55,13 @@ export class LiftSenseEsp32 {
   }
 
   private resolveHost(): Promise<string> {
+    if (this.resolvedHost) {
+      return Promise.resolve(this.resolvedHost);
+    }
+
     if (isIP(this.host) !== 0 || !this.host.endsWith('.local')) {
-      return Promise.resolve(this.host);
+      this.resolvedHost = this.host;
+      return Promise.resolve(this.resolvedHost);
     }
 
     return new Promise((resolve, reject) => {
@@ -58,7 +76,10 @@ export class LiftSenseEsp32 {
         mdns.removeAllListeners();
         mdns.destroy();
         if (error) reject(error);
-        else resolve(address!);
+        else {
+          this.resolvedHost = address;
+          resolve(address!);
+        }
       };
 
       const timeout = setTimeout(
