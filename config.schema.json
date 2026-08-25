@@ -56,11 +56,11 @@
         "description": "Per-device configuration. Manual/LAN-only devices require a Device ID and LAN Key. With cloud discovery, devices are found automatically; use this section for travel times and other overrides. If you have exactly one lift, the Device ID may be omitted.",
         "items": {
           "type": "object",
+          "required": ["deviceId"],
           "properties": {
             "deviceId": {
               "title": "Device ID",
               "type": "string",
-              "required": true,
               "description": "The eWeLink device ID (e.g. 100293a98d). Every lift entry must have this value so its settings stay attached to the correct lift. Found in the eWeLink app under device settings, or in the Homebridge log on startup.",
               "placeholder": "100293a98d"
             },
