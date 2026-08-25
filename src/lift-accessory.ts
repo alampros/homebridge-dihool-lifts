@@ -51,6 +51,7 @@ export class LiftAccessory {
   private pendingOperation: Promise<void> = Promise.resolve();
   private esp32Client?: LiftSenseEsp32;
   private esp32Position?: number;
+  private esp32Available?: boolean;
 
   constructor(platform: DihoolLiftsPlatform, accessory: PlatformAccessory<AccessoryContext>) {
     this.platform = platform;
@@ -171,13 +172,21 @@ export class LiftAccessory {
     if (status && !status.sensorTimeout) {
       this.esp32Position = this.positionFromDistance(status.distanceMm);
       this.coveringService.updateCharacteristic(this.Characteristic.CurrentPosition, this.esp32Position);
+      if (this.esp32Available !== true) {
+        this.log.info(
+          '[%s] LiftSense ESP32 connected (distance=%d mm, position=%d%%)',
+          this.name, status.distanceMm, this.esp32Position,
+        );
+      }
       if (this.debug) {
         this.log.debug('[%s] ESP32 distance: %d mm → position: %d%%', this.name, status.distanceMm, this.esp32Position);
       }
+    } else if (this.esp32Available !== false) {
+      const reason = error?.message ?? 'sensor timeout';
+      this.log.warn('[%s] LiftSense ESP32 unavailable: %s', this.name, reason);
     }
-    if (error && this.debug) {
-      this.log.debug('[%s] ESP32 unavailable: %s', this.name, error.message);
-    }
+
+    this.esp32Available = active;
   }
 
   private positionFromDistance(distanceMm: number): number {
