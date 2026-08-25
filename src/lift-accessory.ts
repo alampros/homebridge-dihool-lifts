@@ -77,14 +77,11 @@ export class LiftAccessory {
     this.manualSwitches = deviceConfig?.manualSwitches ?? false;
     this.debug = (platform.config as { debug?: boolean }).debug ?? false;
 
-    const operationTimeUp = deviceConfig?.operationTimeUp ?? DEFAULTS.operationTimeUp;
-    const operationTimeDown = deviceConfig?.operationTimeDown ?? DEFAULTS.operationTimeDown;
-
     // State tracker — persists to Homebridge storage directory
     this.tracker = new LiftStateTracker({
       deviceId: this.deviceId,
-      travelTimeUpSec: operationTimeUp,
-      travelTimeDownSec: operationTimeDown,
+      travelTimeUpSec: DEFAULTS.operationTimeUp,
+      travelTimeDownSec: DEFAULTS.operationTimeDown,
       storagePath: platform.api.user.storagePath(),
       log: (msg) => this.log.info('[%s] [tracker] %s', this.name, msg),
     });
@@ -144,9 +141,9 @@ export class LiftAccessory {
     this.configureEsp32Status();
 
     this.log.info(
-      '[%s] Initialised (up=CH%d, down=CH%d, timeUp=%ds, timeDown=%ds, position=%d%%)',
+      '[%s] Initialised (up=CH%d, down=CH%d, position=%d%%)',
       this.name, this.upChannel, this.downChannel,
-      operationTimeUp, operationTimeDown, pos,
+      pos,
     );
   }
 

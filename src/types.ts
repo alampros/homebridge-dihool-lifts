@@ -88,10 +88,6 @@ export interface DeviceConfig {
   deviceId?: string;
   /** Optional display label (overrides cloud name). */
   label?: string;
-  /** Full travel time in seconds going up (0% → 100%). Default: 8. */
-  operationTimeUp?: number;
-  /** Full travel time in seconds going down (100% → 0%). Default: 8. */
-  operationTimeDown?: number;
   /** Manual IP address override (skips mDNS discovery for this device). */
   ipAddress?: string;
   /** Manual lanKey override (skips cloud login for this device). */
