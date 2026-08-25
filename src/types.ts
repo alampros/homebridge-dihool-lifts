@@ -102,6 +102,18 @@ export interface DeviceConfig {
   downChannel?: number;
   /** Expose Manual Up / Manual Down switches that send raw pulses, bypassing state tracking. */
   manualSwitches?: boolean;
+  /** mDNS hostname or IP address of the LiftSense ESP32 (for example, liftsense.local). */
+  esp32Host?: string;
+  /** Shared API token configured on the LiftSense ESP32. */
+  esp32Token?: string;
+  /** ESP32 status poll interval in seconds. Default: 2. */
+  esp32PollIntervalSec?: number;
+  /** Sensor distance in mm when the lift is fully raised. Default: 150. */
+  raisedDistanceMm?: number;
+  /** Sensor distance in mm when the lift is fully lowered. Default: 1000. */
+  loweredDistanceMm?: number;
+  /** Whether the measured distance becomes smaller as the lift rises. Default: true. */
+  distanceDecreasesWhenRising?: boolean;
 }
 
 /**

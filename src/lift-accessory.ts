@@ -2,6 +2,7 @@ import type { PlatformAccessory, Service, Characteristic, CharacteristicValue } 
 import type { DihoolLiftsPlatform } from './platform.js';
 import type { DeviceParams, AccessoryContext } from './types.js';
 import { LiftStateTracker } from './position-tracker.js';
+import { LiftSenseEsp32, type LiftSenseStatus } from './connection/liftsense-esp32.js';
 import { DEFAULTS } from './utils/constants.js';
 
 /**
@@ -48,6 +49,8 @@ export class LiftAccessory {
   private isOnline = true;
   private cosmeticTimer: NodeJS.Timeout | undefined;
   private pendingOperation: Promise<void> = Promise.resolve();
+  private esp32Client?: LiftSenseEsp32;
+  private esp32Position?: number;
 
   constructor(platform: DihoolLiftsPlatform, accessory: PlatformAccessory<AccessoryContext>) {
     this.platform = platform;
@@ -112,6 +115,7 @@ export class LiftAccessory {
       this.Characteristic.PositionState,
       this.Characteristic.PositionState.STOPPED,
     );
+    this.coveringService.setCharacteristic(this.Characteristic.StatusActive, true);
 
     // AccessoryInformation
     const infoService =
@@ -132,17 +136,70 @@ export class LiftAccessory {
         if (!this.isOnline) {
           throw new this.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
         }
-        return this.tracker.getPosition();
+        return this.esp32Position ?? this.tracker.getPosition();
       });
 
     // Manual override switches — raw pulses that bypass state tracking
     this.configureManualSwitches();
+    this.configureEsp32Status();
 
     this.log.info(
       '[%s] Initialised (up=CH%d, down=CH%d, timeUp=%ds, timeDown=%ds, position=%d%%)',
       this.name, this.upChannel, this.downChannel,
       operationTimeUp, operationTimeDown, pos,
     );
+  }
+
+  private configureEsp32Status(): void {
+    const config = this.platform.getDeviceConfig(this.deviceId);
+    if (!config?.esp32Host || !config.esp32Token) {
+      return;
+    }
+
+    const pollIntervalMs = Math.max(1, config.esp32PollIntervalSec ?? 2) * 1000;
+    this.esp32Client = new LiftSenseEsp32(
+      config.esp32Host,
+      config.esp32Token,
+      pollIntervalMs,
+      (status, error) => this.handleEsp32Status(status, error),
+    );
+    this.esp32Client.start();
+    this.log.info('[%s] Polling LiftSense ESP32 at %s', this.name, config.esp32Host);
+  }
+
+  private handleEsp32Status(status: LiftSenseStatus | undefined, error?: Error): void {
+    const active = !!status && !status.sensorTimeout;
+    this.coveringService.updateCharacteristic(this.Characteristic.StatusActive, active);
+
+    if (status && !status.sensorTimeout) {
+      this.esp32Position = this.positionFromDistance(status.distanceMm);
+      this.coveringService.updateCharacteristic(this.Characteristic.CurrentPosition, this.esp32Position);
+      if (this.debug) {
+        this.log.debug('[%s] ESP32 distance: %d mm → position: %d%%', this.name, status.distanceMm, this.esp32Position);
+      }
+    }
+    if (error && this.debug) {
+      this.log.debug('[%s] ESP32 unavailable: %s', this.name, error.message);
+    }
+  }
+
+  private positionFromDistance(distanceMm: number): number {
+    const config = this.platform.getDeviceConfig(this.deviceId);
+    const raisedDistanceMm = config?.raisedDistanceMm ?? 150;
+    const loweredDistanceMm = config?.loweredDistanceMm ?? 1000;
+    const distanceDecreasesWhenRising = config?.distanceDecreasesWhenRising ?? true;
+
+    const span = distanceDecreasesWhenRising
+      ? loweredDistanceMm - raisedDistanceMm
+      : raisedDistanceMm - loweredDistanceMm;
+    if (span <= 0) {
+      return 0;
+    }
+
+    const position = distanceDecreasesWhenRising
+      ? ((loweredDistanceMm - distanceMm) / span) * 100
+      : ((distanceMm - loweredDistanceMm) / span) * 100;
+    return Math.round(Math.max(0, Math.min(100, position)));
   }
 
   // -----------------------------------------------------------------------
@@ -344,6 +401,7 @@ export class LiftAccessory {
   }
 
   public destroy(): void {
+    this.esp32Client?.stop();
     if (this.cosmeticTimer) {
       clearTimeout(this.cosmeticTimer);
       this.cosmeticTimer = undefined;

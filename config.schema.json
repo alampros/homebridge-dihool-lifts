@@ -121,6 +121,48 @@
               "type": "boolean",
               "default": false,
               "description": "Expose Manual Up and Manual Down switches that send raw motor pulses, bypassing state tracking. Useful for recovering from state mismatches or manual control."
+            },
+            "esp32Host": {
+              "title": "LiftSense ESP32 Hostname",
+              "type": "string",
+              "description": "mDNS hostname or IP address of the LiftSense ESP32. Leave blank to disable sensor polling.",
+              "placeholder": "liftsense.local"
+            },
+            "esp32Token": {
+              "title": "LiftSense ESP32 API Token",
+              "type": "string",
+              "description": "The shared API token configured in the ESP32 firmware.",
+              "x-schema-form": { "type": "password" }
+            },
+            "esp32PollIntervalSec": {
+              "title": "ESP32 Poll Interval (seconds)",
+              "type": "number",
+              "default": 2,
+              "minimum": 1,
+              "maximum": 60,
+              "description": "How often to read the ESP32 sensor status."
+            },
+            "raisedDistanceMm": {
+              "title": "Raised Distance (mm)",
+              "type": "number",
+              "default": 150,
+              "minimum": 1,
+              "maximum": 4000,
+              "description": "Sensor reading when the lift is fully raised. Default: 150 mm. Calibrate after mounting the sensor."
+            },
+            "loweredDistanceMm": {
+              "title": "Lowered Distance (mm)",
+              "type": "number",
+              "default": 1000,
+              "minimum": 1,
+              "maximum": 4000,
+              "description": "Sensor reading when the lift is fully lowered. Default: 1000 mm. Calibrate after mounting the sensor."
+            },
+            "distanceDecreasesWhenRising": {
+              "title": "Distance Decreases When Rising",
+              "type": "boolean",
+              "default": true,
+              "description": "Enable when the sensor is above the platform and the platform gets closer as it rises."
             }
           }
         }
@@ -168,7 +210,13 @@
             "devices[].ipAddress",
             "devices[].upChannel",
             "devices[].downChannel",
-            "devices[].manualSwitches"
+            "devices[].manualSwitches",
+            "devices[].esp32Host",
+            "devices[].esp32Token",
+            "devices[].esp32PollIntervalSec",
+            "devices[].raisedDistanceMm",
+            "devices[].loweredDistanceMm",
+            "devices[].distanceDecreasesWhenRising"
           ]
         }
       ]
