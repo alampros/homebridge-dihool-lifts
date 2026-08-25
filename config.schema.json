@@ -133,6 +133,12 @@
               "default": false,
               "description": "Log every ESP32 distance reading and calculated position. Useful while calibrating; leave off during normal use."
             },
+            "esp32SyncTargetPosition": {
+              "title": "Show Measured Percentage in Home",
+              "type": "boolean",
+              "default": false,
+              "description": "Synchronize HomeKit's target display with the measured percentage. Keep disabled until the ESP32 sensor is installed and calibrated. This changes HomeKit display state only and never sends a lift command."
+            },
             "minDistanceMm": {
               "title": "Minimum Distance (mm)",
               "type": "number",
@@ -190,6 +196,7 @@
             "devices[].esp32Token",
             "devices[].esp32PollIntervalSec",
             "devices[].esp32DebugLogging",
+            "devices[].esp32SyncTargetPosition",
             "devices[].minDistanceMm",
             "devices[].maxDistanceMm"
           ]

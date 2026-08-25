@@ -106,6 +106,12 @@ export interface DeviceConfig {
   esp32PollIntervalSec?: number;
   /** Log each ESP32 sensor poll. Default: false. */
   esp32DebugLogging?: boolean;
+  /**
+   * Synchronize HomeKit TargetPosition with measured ESP32 position so the
+   * Home app displays an exact percentage. Keep false until the sensor is
+   * installed and calibrated. Default: false.
+   */
+  esp32SyncTargetPosition?: boolean;
   /** Minimum sensor distance in mm, at the fully raised (100%) position. Default: 150. */
   minDistanceMm?: number;
   /** Maximum sensor distance in mm, at the fully lowered (0%) position. Default: 1000. */

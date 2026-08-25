@@ -42,6 +42,7 @@ export class LiftAccessory {
   private readonly name: string;
   private readonly debug: boolean;
   private readonly esp32DebugLogging: boolean;
+  private readonly esp32SyncTargetPosition: boolean;
 
   private readonly tracker: LiftStateTracker;
   private coveringService: Service;
@@ -81,6 +82,7 @@ export class LiftAccessory {
     this.manualSwitches = deviceConfig?.manualSwitches ?? false;
     this.debug = (platform.config as { debug?: boolean }).debug ?? false;
     this.esp32DebugLogging = deviceConfig?.esp32DebugLogging ?? false;
+    this.esp32SyncTargetPosition = deviceConfig?.esp32SyncTargetPosition ?? false;
 
     // State tracker — persists to Homebridge storage directory
     this.tracker = new LiftStateTracker({
@@ -194,6 +196,13 @@ export class LiftAccessory {
       this.invalidCalibrationLogged = false;
       this.esp32Position = position;
       this.coveringService.updateCharacteristic(this.Characteristic.CurrentPosition, position);
+      if (this.esp32SyncTargetPosition) {
+        // A stopped WindowCovering needs matching current and target values
+        // for Home.app to render "46% Open" instead of the generic "Open".
+        // updateCharacteristic() publishes cached HomeKit state without
+        // invoking handleTargetPositionSet(), so this cannot send a pulse.
+        this.coveringService.updateCharacteristic(this.Characteristic.TargetPosition, position);
+      }
       // Until motor-direction sensing is installed, the distance sensor is our
       // only source of actual state. Clear the legacy timer-based movement
       // indicator so HomeKit renders the measured percentage instead of a
