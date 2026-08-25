@@ -1,4 +1,6 @@
 import { request } from 'node:http';
+import { isIP } from 'node:net';
+import multicastDns from 'multicast-dns';
 
 export interface LiftSenseStatus {
   distanceMm: number;
@@ -36,9 +38,57 @@ export class LiftSenseEsp32 {
   }
 
   private getStatus(): Promise<LiftSenseStatus> {
+    return this.resolveHost().then((host) => this.requestStatus(host));
+  }
+
+  private resolveHost(): Promise<string> {
+    if (isIP(this.host) !== 0 || !this.host.endsWith('.local')) {
+      return Promise.resolve(this.host);
+    }
+
+    return new Promise((resolve, reject) => {
+      const mdns = multicastDns();
+      let finished = false;
+      const hostname = this.host.toLowerCase();
+
+      const finish = (error?: Error, address?: string) => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timeout);
+        mdns.removeAllListeners();
+        mdns.destroy();
+        if (error) reject(error);
+        else resolve(address!);
+      };
+
+      const timeout = setTimeout(
+        () => finish(new Error(`mDNS could not resolve ${this.host}`)),
+        3000,
+      );
+
+      mdns.on('error', (error: Error) => finish(error));
+      mdns.on('response', (response: multicastDns.ResponsePacket) => {
+        const records = [...(response.answers ?? []), ...(response.additionals ?? [])];
+        for (const record of records) {
+          if (
+            record.type === 'A' &&
+            record.name.toLowerCase() === hostname &&
+            'data' in record &&
+            typeof record.data === 'string'
+          ) {
+            finish(undefined, record.data);
+            return;
+          }
+        }
+      });
+      mdns.query([{ name: this.host, type: 'A' }]);
+    });
+  }
+
+  private requestStatus(host: string): Promise<LiftSenseStatus> {
     return new Promise((resolve, reject) => {
       const req = request({
-        host: this.host,
+        host,
         port: 80,
         path: '/v1/status',
         method: 'GET',
