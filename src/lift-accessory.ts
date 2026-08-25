@@ -3,7 +3,6 @@ import type { DihoolLiftsPlatform } from './platform.js';
 import type { DeviceParams, AccessoryContext } from './types.js';
 import { LiftStateTracker } from './position-tracker.js';
 import { LiftSenseEsp32, type LiftSenseStatus } from './connection/liftsense-esp32.js';
-import { MedianFilter } from './median-filter.js';
 import { positionFromDistance } from './position-from-distance.js';
 import { DEFAULTS } from './utils/constants.js';
 
@@ -59,7 +58,6 @@ export class LiftAccessory {
   private esp32Position?: number;
   private esp32Available?: boolean;
   private invalidCalibrationLogged = false;
-  private readonly distanceFilter = new MedianFilter(5, 3);
 
   constructor(platform: DihoolLiftsPlatform, accessory: PlatformAccessory<AccessoryContext>) {
     this.platform = platform;
@@ -183,16 +181,7 @@ export class LiftAccessory {
     this.coveringService.updateCharacteristic(this.Characteristic.StatusActive, active);
 
     if (status && !status.sensorTimeout) {
-      const filteredDistanceMm = this.distanceFilter.add(status.distanceMm);
-      if (filteredDistanceMm === undefined) {
-        this.esp32Available = true;
-        if (this.esp32DebugLogging) {
-          this.log.info('[%s] ESP32 distance: %d mm (warming up filter)', this.name, status.distanceMm);
-        }
-        return;
-      }
-
-      const position = this.positionFromDistance(filteredDistanceMm);
+      const position = this.positionFromDistance(status.distanceMm);
       if (position === undefined) {
         if (!this.invalidCalibrationLogged) {
           this.log.error(
@@ -231,17 +220,19 @@ export class LiftAccessory {
       if (this.esp32Available !== true) {
         this.log.info(
           '[%s] LiftSense ESP32 connected (distance=%d mm, position=%d%%)',
-          this.name, filteredDistanceMm, position,
+          this.name, status.distanceMm, position,
         );
       }
       if (this.esp32DebugLogging) {
+        const rawDistance = status.rawDistanceMm === undefined
+          ? ''
+          : ` (raw: ${status.rawDistanceMm} mm)`;
         this.log.info(
-          '[%s] ESP32 distance: %d mm (filtered: %d mm) → position: %d%%',
-          this.name, status.distanceMm, filteredDistanceMm, position,
+          '[%s] ESP32 distance: %d mm%s → position: %d%%',
+          this.name, status.distanceMm, rawDistance, position,
         );
       }
     } else if (this.esp32Available !== false) {
-      this.distanceFilter.reset();
       const reason = error?.message ?? 'sensor timeout';
       this.log.warn('[%s] LiftSense ESP32 unavailable: %s', this.name, reason);
     }

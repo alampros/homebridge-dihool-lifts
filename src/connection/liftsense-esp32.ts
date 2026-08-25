@@ -3,8 +3,41 @@ import { isIP } from 'node:net';
 import multicastDns from 'multicast-dns';
 
 export interface LiftSenseStatus {
+  /** Filtered distance used for position calculations. */
   distanceMm: number;
+  /** Latest unfiltered sample, when provided by newer firmware. */
+  rawDistanceMm?: number;
   sensorTimeout: boolean;
+}
+
+interface LiftSenseStatusResponse {
+  distance_mm?: unknown;
+  raw_distance_mm?: unknown;
+  filtered_distance_mm?: unknown;
+  filter_ready?: unknown;
+  sensor_timeout?: unknown;
+}
+
+export function parseLiftSenseStatus(body: string): LiftSenseStatus {
+  const data = JSON.parse(body) as LiftSenseStatusResponse;
+  const distanceMm = typeof data.filtered_distance_mm === 'number'
+    ? data.filtered_distance_mm
+    : data.distance_mm;
+
+  if (
+    typeof distanceMm !== 'number' ||
+    typeof data.sensor_timeout !== 'boolean' ||
+    (data.filter_ready !== undefined && typeof data.filter_ready !== 'boolean') ||
+    (data.raw_distance_mm !== undefined && typeof data.raw_distance_mm !== 'number')
+  ) {
+    throw new Error('ESP32 returned an invalid status response');
+  }
+
+  return {
+    distanceMm,
+    rawDistanceMm: typeof data.raw_distance_mm === 'number' ? data.raw_distance_mm : undefined,
+    sensorTimeout: data.sensor_timeout || data.filter_ready === false,
+  };
 }
 
 export class LiftSenseEsp32 {
@@ -125,11 +158,7 @@ export class LiftSenseEsp32 {
             return;
           }
           try {
-            const data = JSON.parse(body) as { distance_mm?: unknown; sensor_timeout?: unknown };
-            if (typeof data.distance_mm !== 'number' || typeof data.sensor_timeout !== 'boolean') {
-              throw new Error('ESP32 returned an invalid status response');
-            }
-            resolve({ distanceMm: data.distance_mm, sensorTimeout: data.sensor_timeout });
+            resolve(parseLiftSenseStatus(body));
           } catch (error) {
             reject(error);
           }
