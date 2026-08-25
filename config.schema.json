@@ -60,7 +60,8 @@
             "deviceId": {
               "title": "Device ID",
               "type": "string",
-              "description": "The eWeLink device ID (e.g. 100293a98d). Required for manual/LAN-only devices and for matching overrides when you have multiple cloud-discovered lifts. Found in the eWeLink app under device settings, or in the Homebridge log on startup.",
+              "required": true,
+              "description": "The eWeLink device ID (e.g. 100293a98d). Every lift entry must have this value so its settings stay attached to the correct lift. Found in the eWeLink app under device settings, or in the Homebridge log on startup.",
               "placeholder": "100293a98d"
             },
             "label": {
