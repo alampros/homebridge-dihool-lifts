@@ -127,6 +127,12 @@
               "maximum": 60,
               "description": "How often to read the ESP32 sensor status."
             },
+            "esp32DebugLogging": {
+              "title": "ESP32 Debug Logging",
+              "type": "boolean",
+              "default": false,
+              "description": "Log every ESP32 distance reading and calculated position. Useful while calibrating; leave off during normal use."
+            },
             "raisedDistanceMm": {
               "title": "Raised Distance (mm)",
               "type": "number",
@@ -189,6 +195,7 @@
             "devices[].esp32Host",
             "devices[].esp32Token",
             "devices[].esp32PollIntervalSec",
+            "devices[].esp32DebugLogging",
             "devices[].raisedDistanceMm",
             "devices[].loweredDistanceMm",
             "devices[].distanceDecreasesWhenRising"

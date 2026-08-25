@@ -40,6 +40,7 @@ export class LiftAccessory {
   private readonly downChannel: number;
   private readonly name: string;
   private readonly debug: boolean;
+  private readonly esp32DebugLogging: boolean;
 
   private readonly tracker: LiftStateTracker;
   private coveringService: Service;
@@ -77,6 +78,7 @@ export class LiftAccessory {
     this.downChannel = deviceConfig?.downChannel ?? DEFAULTS.downChannel;
     this.manualSwitches = deviceConfig?.manualSwitches ?? false;
     this.debug = (platform.config as { debug?: boolean }).debug ?? false;
+    this.esp32DebugLogging = deviceConfig?.esp32DebugLogging ?? false;
 
     // State tracker — persists to Homebridge storage directory
     this.tracker = new LiftStateTracker({
@@ -178,8 +180,8 @@ export class LiftAccessory {
           this.name, status.distanceMm, this.esp32Position,
         );
       }
-      if (this.debug) {
-        this.log.debug('[%s] ESP32 distance: %d mm → position: %d%%', this.name, status.distanceMm, this.esp32Position);
+      if (this.esp32DebugLogging) {
+        this.log.info('[%s] ESP32 distance: %d mm → position: %d%%', this.name, status.distanceMm, this.esp32Position);
       }
     } else if (this.esp32Available !== false) {
       const reason = error?.message ?? 'sensor timeout';

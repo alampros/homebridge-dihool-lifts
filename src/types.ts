@@ -104,6 +104,8 @@ export interface DeviceConfig {
   esp32Token?: string;
   /** ESP32 status poll interval in seconds. Default: 2. */
   esp32PollIntervalSec?: number;
+  /** Log each ESP32 sensor poll. Default: false. */
+  esp32DebugLogging?: boolean;
   /** Sensor distance in mm when the lift is fully raised. Default: 150. */
   raisedDistanceMm?: number;
   /** Sensor distance in mm when the lift is fully lowered. Default: 1000. */
