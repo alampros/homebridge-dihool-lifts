@@ -50,11 +50,11 @@ Use the Homebridge Config UI for a guided setup, or see `config.schema.json` for
 
 ### Per-device options
 
-For manual / LAN-only devices, each `devices` entry must include `deviceId` and `lanKey`. With cloud discovery, devices are found automatically; `devices` entries are only needed for overrides. If you have exactly one cloud-discovered lift, you may omit `deviceId` from a single override entry and it will apply to that lift.
+Every `devices` entry must include `deviceId` so its settings stay attached to the correct lift. Manual / LAN-only devices must also include `lanKey`. With cloud discovery, devices are found automatically; `devices` entries are only needed for overrides.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `deviceId` | | eWeLink device ID. Required for manual/LAN-only devices and for matching overrides when multiple lifts are discovered |
+| `deviceId` | | eWeLink device ID. Required for every device entry |
 | `lanKey` | | Device encryption key. Required for manual/LAN-only devices; cloud discovery supplies it automatically |
 | `label` | Device ID or cloud name | Custom HomeKit display name |
 | `operationTimeUp` | 8 | Seconds for full upward travel. Used only for the HomeKit status indicator timing. |
@@ -62,6 +62,14 @@ For manual / LAN-only devices, each `devices` entry must include `deviceId` and 
 | `upChannel` | 0 | eWeLink outlet index for UP |
 | `downChannel` | 1 | eWeLink outlet index for DOWN |
 | `ipAddress` | | Manual IP (skips mDNS discovery) |
+| `esp32Host` | | LiftSense hostname or IPv4 address; enables physical position and motor-state polling |
+| `esp32Token` | | LiftSense API token |
+| `esp32PollIntervalSec` | 2 | Seconds between LiftSense status polls |
+| `esp32DebugLogging` | false | Log each LiftSense distance and motor-state reading |
+| `esp32SyncTargetPosition` | false | Show measured position as HomeKit's target after the motor stops; never sends a command |
+| `invertMotorChannelDirections` | false | Swap motor detector channel 1/2 direction meanings; affects HomeKit display only |
+| `minDistanceMm` | 150 | Distance measured at fully raised (100%) |
+| `maxDistanceMm` | 1000 | Distance measured at fully lowered (0%) |
 
 ### Getting the LAN key
 

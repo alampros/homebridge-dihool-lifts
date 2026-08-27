@@ -112,6 +112,8 @@ export interface DeviceConfig {
    * installed and calibrated. Default: false.
    */
   esp32SyncTargetPosition?: boolean;
+  /** Swap the observed meanings of LiftSense motor channels 1 and 2. Default: false. */
+  invertMotorChannelDirections?: boolean;
   /** Minimum sensor distance in mm, at the fully raised (100%) position. Default: 150. */
   minDistanceMm?: number;
   /** Maximum sensor distance in mm, at the fully lowered (0%) position. Default: 1000. */

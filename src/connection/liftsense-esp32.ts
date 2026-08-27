@@ -8,7 +8,12 @@ export interface LiftSenseStatus {
   /** Latest unfiltered sample, when provided by newer firmware. */
   rawDistanceMm?: number;
   sensorTimeout: boolean;
+  /** Raw, isolated motor-output detector states from the LiftSense firmware. */
+  motorChannel1Active?: boolean;
+  motorChannel2Active?: boolean;
 }
+
+export type LiftSenseMotorDirection = 'up' | 'down' | 'stopped' | 'invalid' | 'unknown';
 
 interface LiftSenseStatusResponse {
   distance_mm?: unknown;
@@ -16,6 +21,8 @@ interface LiftSenseStatusResponse {
   filtered_distance_mm?: unknown;
   filter_ready?: unknown;
   sensor_timeout?: unknown;
+  motor_channel_1_active?: unknown;
+  motor_channel_2_active?: unknown;
 }
 
 export function parseLiftSenseStatus(body: string): LiftSenseStatus {
@@ -28,7 +35,10 @@ export function parseLiftSenseStatus(body: string): LiftSenseStatus {
     typeof distanceMm !== 'number' ||
     typeof data.sensor_timeout !== 'boolean' ||
     (data.filter_ready !== undefined && typeof data.filter_ready !== 'boolean') ||
-    (data.raw_distance_mm !== undefined && typeof data.raw_distance_mm !== 'number')
+    (data.raw_distance_mm !== undefined && typeof data.raw_distance_mm !== 'number') ||
+    (data.motor_channel_1_active !== undefined && typeof data.motor_channel_1_active !== 'boolean') ||
+    (data.motor_channel_2_active !== undefined && typeof data.motor_channel_2_active !== 'boolean') ||
+    ((data.motor_channel_1_active === undefined) !== (data.motor_channel_2_active === undefined))
   ) {
     throw new Error('ESP32 returned an invalid status response');
   }
@@ -37,7 +47,33 @@ export function parseLiftSenseStatus(body: string): LiftSenseStatus {
     distanceMm,
     rawDistanceMm: typeof data.raw_distance_mm === 'number' ? data.raw_distance_mm : undefined,
     sensorTimeout: data.sensor_timeout || data.filter_ready === false,
+    motorChannel1Active: typeof data.motor_channel_1_active === 'boolean'
+      ? data.motor_channel_1_active
+      : undefined,
+    motorChannel2Active: typeof data.motor_channel_2_active === 'boolean'
+      ? data.motor_channel_2_active
+      : undefined,
   };
+}
+
+/**
+ * Translate the firmware's raw detector channels into a presentation-only
+ * direction. This never affects which DIHOOL relay channel receives commands.
+ */
+export function motorDirectionFromStatus(
+  status: LiftSenseStatus,
+  invertMotorChannelDirections = false,
+): LiftSenseMotorDirection {
+  const channel1 = status.motorChannel1Active;
+  const channel2 = status.motorChannel2Active;
+
+  if (channel1 === undefined || channel2 === undefined) return 'unknown';
+  if (channel1 && channel2) return 'invalid';
+  if (!channel1 && !channel2) return 'stopped';
+
+  const channel1Direction = invertMotorChannelDirections ? 'down' : 'up';
+  if (channel1) return channel1Direction;
+  return channel1Direction === 'up' ? 'down' : 'up';
 }
 
 export class LiftSenseEsp32 {
@@ -143,6 +179,9 @@ export class LiftSenseEsp32 {
     return new Promise((resolve, reject) => {
       const req = request({
         host,
+        // LiftSense discovery deliberately resolves only mDNS A records. Keep
+        // the HTTP path IPv4-only as well so Node never waits on an AAAA lookup.
+        family: 4,
         port: 80,
         path: '/v1/status',
         method: 'GET',

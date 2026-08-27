@@ -2,6 +2,7 @@
   "pluginAlias": "DihoolLifts",
   "pluginType": "platform",
   "singular": true,
+  "strictValidation": true,
   "headerDisplay": "Control DIHOOL IPS-S2 scissor lifts via the eWeLink LAN protocol. Enter your eWeLink credentials for automatic device discovery, or configure devices manually with their Device ID and LAN Key.",
   "footerDisplay": "For help, see the [GitHub repository](https://github.com/alampros/homebridge-dihool-lifts).",
   "schema": {
@@ -53,7 +54,7 @@
       "devices": {
         "title": "Lift Devices",
         "type": "array",
-        "description": "Per-device configuration. Manual/LAN-only devices require a Device ID and LAN Key. With cloud discovery, devices are found automatically; use this section for travel times and other overrides. If you have exactly one lift, the Device ID may be omitted.",
+        "description": "Per-device configuration. Every entry requires a Device ID so settings stay attached to the correct lift. Manual/LAN-only devices also require a LAN Key. With cloud discovery, devices are found automatically; use this section for per-device overrides.",
         "items": {
           "type": "object",
           "required": ["deviceId"],
@@ -61,6 +62,8 @@
             "deviceId": {
               "title": "Device ID",
               "type": "string",
+              "minLength": 1,
+              "pattern": ".*\\S.*",
               "description": "The eWeLink device ID (e.g. 100293a98d). Every lift entry must have this value so its settings stay attached to the correct lift. Found in the eWeLink app under device settings, or in the Homebridge log on startup.",
               "placeholder": "100293a98d"
             },
@@ -139,6 +142,12 @@
               "default": false,
               "description": "Synchronize HomeKit's target display with the measured percentage. Keep disabled until the ESP32 sensor is installed and calibrated. This changes HomeKit display state only and never sends a lift command."
             },
+            "invertMotorChannelDirections": {
+              "title": "Invert Motor Channel Directions",
+              "type": "boolean",
+              "default": false,
+              "description": "Swap the observed motor directions reported by LiftSense. By default motor detector channel 1 means up and channel 2 means down. This affects HomeKit movement display only and never changes the DIHOOL control channels."
+            },
             "minDistanceMm": {
               "title": "Minimum Distance (mm)",
               "type": "number",
@@ -191,12 +200,22 @@
             "devices[].ipAddress",
             "devices[].upChannel",
             "devices[].downChannel",
-            "devices[].manualSwitches",
+            "devices[].manualSwitches"
+          ]
+        },
+        {
+          "type": "fieldset",
+          "title": "LiftSense Sensor",
+          "description": "Configure the optional LiftSense ESP32 distance sensor and its calibration.",
+          "expandable": true,
+          "expanded": false,
+          "items": [
             "devices[].esp32Host",
             "devices[].esp32Token",
             "devices[].esp32PollIntervalSec",
             "devices[].esp32DebugLogging",
             "devices[].esp32SyncTargetPosition",
+            "devices[].invertMotorChannelDirections",
             "devices[].minDistanceMm",
             "devices[].maxDistanceMm"
           ]

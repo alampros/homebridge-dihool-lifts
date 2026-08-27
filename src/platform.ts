@@ -103,18 +103,38 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
       }
     }
 
-    // Manual config devices (override cloud for same deviceId)
+    // Apply configured devices after cloud discovery so local configuration
+    // takes precedence over eWeLink metadata for the same device.
     if (this.config.devices) {
       for (const cfg of this.config.devices) {
-        if (!cfg.deviceId || !cfg.lanKey) {
+        if (!cfg.deviceId) {
           if (this.config.mode === 'lan' || cfg.deviceId || cfg.lanKey) {
             this.log.warn(
               'Skipping manual device config: %s',
-              !cfg.deviceId && !cfg.lanKey ? 'missing deviceId and lanKey' : !cfg.deviceId ? 'missing deviceId' : 'missing lanKey',
+              !cfg.lanKey ? 'missing deviceId and lanKey' : 'missing deviceId',
             );
           }
           continue;
         }
+
+        const discovered = deviceMap.get(cfg.deviceId);
+        if (discovered) {
+          deviceMap.set(cfg.deviceId, {
+            ...discovered,
+            name: cfg.label ?? discovered.name,
+            lanKey: cfg.lanKey ?? discovered.lanKey,
+          });
+          this.log.info('Applied configured overrides: %s', cfg.deviceId);
+          continue;
+        }
+
+        if (!cfg.lanKey) {
+          if (this.config.mode === 'lan') {
+            this.log.warn('Skipping manual device config: missing lanKey');
+          }
+          continue;
+        }
+
         deviceMap.set(cfg.deviceId, {
           deviceId: cfg.deviceId,
           name: cfg.label ?? cfg.deviceId,
@@ -174,6 +194,10 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
 
       if (existingAccessory) {
         this.log.info('Restoring existing accessory: %s (%s)', device.name, device.deviceId);
+
+        // Cached accessories retain their original cloud-derived name. Keep
+        // them aligned with the resolved name, including configured labels.
+        existingAccessory.displayName = device.name;
 
         existingAccessory.context = {
           deviceId: device.deviceId,
