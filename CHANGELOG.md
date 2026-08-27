@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.1.8](https://github.com/alampros/homebridge-dihool-lifts/compare/v0.1.7...v0.1.8) (2026-08-27)
+
+
+### Features
+
+* **config:** add esp32 debug logging option ([85ebdef](https://github.com/alampros/homebridge-dihool-lifts/commit/85ebdef5bc04717da49d8444d03ad3156222e8dd))
+* gate sensor target position sync ([6276048](https://github.com/alampros/homebridge-dihool-lifts/commit/6276048ac396f8bc64755d7d7b63c570a31c7ce6))
+* integrate LiftSense motor state ([6b5bab9](https://github.com/alampros/homebridge-dihool-lifts/commit/6b5bab9eebf8d8bbc572c27407cae88ecca14506))
+* integrate with esp32 sensor ([72cba9e](https://github.com/alampros/homebridge-dihool-lifts/commit/72cba9ef5da622e07ca85ab7f0241da81ed4c4d1))
+
+
+### Bug Fixes
+
+* **config:** require device ID for each ([c8235af](https://github.com/alampros/homebridge-dihool-lifts/commit/c8235affafe0f51680ab17c12d66c8ea040663cd))
+* derive read-only lift position from sensor bounds ([4cfcf4e](https://github.com/alampros/homebridge-dihool-lifts/commit/4cfcf4e556a01c14696ffe1f036e2a0d566387ca))
+* require deviceId for each lift ([2476181](https://github.com/alampros/homebridge-dihool-lifts/commit/24761810bce340800e57cf96b8fc49eb4fab9d71))
+* resolve esp32 host via mdns ([7823f22](https://github.com/alampros/homebridge-dihool-lifts/commit/7823f22c442dff860eddf72fcdaa65e3b43b7fe8))
+* show position ([a45464d](https://github.com/alampros/homebridge-dihool-lifts/commit/a45464d20001d62311c51a65c3c7eb953558195c))
+* smooth sensor position updates ([6271d5f](https://github.com/alampros/homebridge-dihool-lifts/commit/6271d5fc9dc008a3ff43044ba14740cad197e7b4))
+* use filtered readings from esp32 ([5883174](https://github.com/alampros/homebridge-dihool-lifts/commit/588317417f4123167711da96f7614eb77e6e53ca))
+* wait for esp32 init before polling ([30df521](https://github.com/alampros/homebridge-dihool-lifts/commit/30df521b35afec9c060ba671d9255b3a11eca97b))
+
 ## [0.1.7](https://github.com/alampros/homebridge-dihool-lifts/compare/v0.1.6...v0.1.7) (2026-07-11)
 
 
