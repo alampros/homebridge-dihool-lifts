@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.9](https://github.com/alampros/homebridge-dihool-lifts/compare/v0.1.8...v0.1.9) (2026-08-27)
+
+
+### Features
+
+* add liftsense callback url on motor state changes ([e423424](https://github.com/alampros/homebridge-dihool-lifts/commit/e423424c4c8214e2fdc3101dfafa82e3f3157f79))
+
+
+### Bug Fixes
+
+* update liftSenseCallbackPort to accept string values and enhance validation ([fd3b192](https://github.com/alampros/homebridge-dihool-lifts/commit/fd3b192b791bc21d7a187ab6e9e00b9bc0e2da56))
+* use liftSenseCallbackBaseUrl instead of separate host and port ([4e80c32](https://github.com/alampros/homebridge-dihool-lifts/commit/4e80c328dce5cf24e029fafde87ebc19d7d3f42e))
+
 ## [0.1.8](https://github.com/alampros/homebridge-dihool-lifts/compare/v0.1.7...v0.1.8) (2026-08-27)
 
 
