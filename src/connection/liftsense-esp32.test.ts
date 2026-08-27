@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { motorDirectionFromStatus, parseLiftSenseStatus } from './liftsense-esp32.js';
+import {
+  ACTIVE_POLL_INTERVAL_MS,
+  liftSensePollDelay,
+  liftSenseStatusPath,
+  motorDirectionFromStatus,
+  parseLiftSenseStatus,
+} from './liftsense-esp32.js';
 
 describe('parseLiftSenseStatus', () => {
   it('prefers the filtered distance and preserves the raw sample', () => {
@@ -80,5 +86,28 @@ describe('motorDirectionFromStatus', () => {
     expect(motorDirectionFromStatus(status(false, false))).toBe('stopped');
     expect(motorDirectionFromStatus(status(true, true))).toBe('invalid');
     expect(motorDirectionFromStatus(status())).toBe('unknown');
+  });
+});
+
+describe('liftSensePollDelay', () => {
+  it('uses the active interval while moving and during the post-stop window', () => {
+    expect(liftSensePollDelay(5000, true, 0, 1000)).toBe(ACTIVE_POLL_INTERVAL_MS);
+    expect(liftSensePollDelay(5000, false, 2000, 1000)).toBe(ACTIVE_POLL_INTERVAL_MS);
+  });
+
+  it('returns to the configured idle interval after the post-stop window', () => {
+    expect(liftSensePollDelay(5000, false, 2000, 2000)).toBe(5000);
+  });
+});
+
+describe('liftSenseStatusPath', () => {
+  it('includes a fully URL-encoded callback URL when configured', () => {
+    expect(liftSenseStatusPath('http://homebridge.local:8582/v1/liftsense/motor')).toBe(
+      '/v1/status?callback_url=http%3A%2F%2Fhomebridge.local%3A8582%2Fv1%2Fliftsense%2Fmotor',
+    );
+  });
+
+  it('keeps the original status path when callbacks are disabled', () => {
+    expect(liftSenseStatusPath()).toBe('/v1/status');
   });
 });

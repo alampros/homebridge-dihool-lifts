@@ -1,6 +1,10 @@
 import type { API, DynamicPlatformPlugin, Logging, PlatformAccessory, PlatformConfig } from 'homebridge';
 import { EWeLinkCloud } from './connection/ewelink-cloud.js';
 import { EWeLinkLAN } from './connection/ewelink-lan.js';
+import {
+  LiftSenseCallbackServer,
+  type LiftSenseMotorEvent,
+} from './connection/liftsense-callback-server.js';
 import { LiftAccessory } from './lift-accessory.js';
 import type { AccessoryContext, DihoolLiftConfig, DeviceConfig, DeviceUpdate } from './types.js';
 import { DEFAULTS, DEFAULT_HTTP_HOST, DIHOOL_UIID, PLATFORM_NAME, PLUGIN_NAME } from './utils/constants.js';
@@ -22,6 +26,7 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
 
   private readonly accessories: Map<string, PlatformAccessory<AccessoryContext>>;
   private readonly liftHandlers: Map<string, LiftAccessory>;
+  private readonly liftSenseCallbackServer: LiftSenseCallbackServer;
   private lanClient?: EWeLinkLAN;
 
   constructor(log: Logging, config: PlatformConfig, api: API) {
@@ -31,6 +36,10 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
 
     this.accessories = new Map();
     this.liftHandlers = new Map();
+    this.liftSenseCallbackServer = new LiftSenseCallbackServer(
+      this.config.liftSenseCallbackPort ?? 8582,
+      this.log,
+    );
 
     this.log.info('%s initialised', PLUGIN_NAME);
 
@@ -44,6 +53,7 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
       for (const handler of this.liftHandlers.values()) {
         handler.destroy();
       }
+      void this.liftSenseCallbackServer.stop();
       this.lanClient?.closeConnection().catch(() => {});
     });
   }
@@ -67,6 +77,14 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
 
     // Step 3: Register accessories
     this.registerAccessories(devices);
+
+    if (this.liftSenseCallbackServer.hasRegistrations()) {
+      try {
+        await this.liftSenseCallbackServer.start();
+      } catch (error) {
+        this.log.warn('LiftSense callback listener could not start: %s', parseError(error));
+      }
+    }
   }
 
   private async buildDeviceList(): Promise<DiscoveredDevice[]> {
@@ -275,6 +293,21 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
     if (!result) {
       throw new Error(`Failed to send update to ${deviceId}`);
     }
+  }
+
+  registerLiftSenseCallback(
+    deviceId: string,
+    token: string,
+    onEvent: (event: LiftSenseMotorEvent) => void,
+  ): () => void {
+    return this.liftSenseCallbackServer.register(deviceId, token, onEvent);
+  }
+
+  getLiftSenseCallbackUrl(): string | undefined {
+    const host = this.config.liftSenseCallbackHost?.trim();
+    if (!host) return undefined;
+    const port = this.config.liftSenseCallbackPort ?? 8582;
+    return `http://${host}:${port}/v1/liftsense/motor`;
   }
 
   getDeviceConfig(deviceId: string): DeviceConfig | undefined {

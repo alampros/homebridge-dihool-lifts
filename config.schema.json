@@ -51,6 +51,20 @@
         "default": false,
         "description": "Enable verbose debug logging."
       },
+      "liftSenseCallbackPort": {
+        "title": "LiftSense Callback Port",
+        "type": "integer",
+        "default": 8582,
+        "minimum": 1024,
+        "maximum": 65535,
+        "description": "Local port that receives authenticated motor-state callbacks from LiftSense."
+      },
+      "liftSenseCallbackHost": {
+        "title": "LiftSense Callback Host",
+        "type": "string",
+        "description": "Hostname or reserved LAN IPv4 address that LiftSense can use to reach this Homebridge server. Leave blank to disable callbacks and use polling only.",
+        "placeholder": "homebridge.local"
+      },
       "devices": {
         "title": "Lift Devices",
         "type": "array",
@@ -227,7 +241,7 @@
       "title": "General Settings",
       "expandable": true,
       "expanded": false,
-      "items": ["mode", "debug"]
+      "items": ["mode", "debug", "liftSenseCallbackHost", "liftSenseCallbackPort"]
     }
   ]
 }

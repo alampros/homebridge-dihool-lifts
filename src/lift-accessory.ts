@@ -1,6 +1,7 @@
 import type { PlatformAccessory, Service, Characteristic, CharacteristicValue } from 'homebridge';
 import type { DihoolLiftsPlatform } from './platform.js';
 import type { DeviceParams, AccessoryContext } from './types.js';
+import type { LiftSenseMotorEvent } from './connection/liftsense-callback-server.js';
 import { LiftStateTracker } from './position-tracker.js';
 import {
   LiftSenseEsp32,
@@ -61,6 +62,7 @@ export class LiftAccessory {
   private cosmeticTimer: NodeJS.Timeout | undefined;
   private pendingOperation: Promise<void> = Promise.resolve();
   private esp32Client?: LiftSenseEsp32;
+  private unregisterLiftSenseCallback?: () => void;
   private esp32Position?: number;
   private esp32Available?: boolean;
   private invalidCalibrationLogged = false;
@@ -188,9 +190,28 @@ export class LiftAccessory {
       config.esp32Token,
       pollIntervalMs,
       (status, error) => this.handleEsp32Status(status, error),
+      this.platform.getLiftSenseCallbackUrl(),
+    );
+    this.unregisterLiftSenseCallback = this.platform.registerLiftSenseCallback(
+      this.deviceId,
+      config.esp32Token,
+      (event) => this.handleLiftSenseMotorEvent(event),
     );
     this.esp32Client.start();
     this.log.info('[%s] Polling LiftSense ESP32 at %s', this.name, config.esp32Host);
+  }
+
+  private handleLiftSenseMotorEvent(event: LiftSenseMotorEvent): void {
+    this.esp32Client?.notifyMotorState(
+      event.motorChannel1Active,
+      event.motorChannel2Active,
+    );
+    this.updateMotorPositionState(motorDirectionFromStatus({
+      distanceMm: 0,
+      sensorTimeout: false,
+      motorChannel1Active: event.motorChannel1Active,
+      motorChannel2Active: event.motorChannel2Active,
+    }, this.invertMotorChannelDirections));
   }
 
   private handleEsp32Status(status: LiftSenseStatus | undefined, error?: Error): void {
@@ -513,6 +534,7 @@ export class LiftAccessory {
   }
 
   public destroy(): void {
+    this.unregisterLiftSenseCallback?.();
     this.esp32Client?.stop();
     if (this.cosmeticTimer) {
       clearTimeout(this.cosmeticTimer);

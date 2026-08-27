@@ -2,6 +2,9 @@ import { request } from 'node:http';
 import { isIP } from 'node:net';
 import multicastDns from 'multicast-dns';
 
+export const ACTIVE_POLL_INTERVAL_MS = 100;
+export const POST_STOP_ACTIVE_MS = 2000;
+
 export interface LiftSenseStatus {
   /** Filtered distance used for position calculations. */
   distanceMm: number;
@@ -76,29 +79,62 @@ export function motorDirectionFromStatus(
   return channel1Direction === 'up' ? 'down' : 'up';
 }
 
+export function liftSensePollDelay(
+  idlePollIntervalMs: number,
+  motorActive: boolean,
+  postStopUntilMs: number,
+  nowMs: number,
+): number {
+  return motorActive || nowMs < postStopUntilMs
+    ? ACTIVE_POLL_INTERVAL_MS
+    : idlePollIntervalMs;
+}
+
+export function liftSenseStatusPath(callbackUrl?: string): string {
+  return callbackUrl
+    ? `/v1/status?callback_url=${encodeURIComponent(callbackUrl)}`
+    : '/v1/status';
+}
+
 export class LiftSenseEsp32 {
   private timer?: NodeJS.Timeout;
+  private running = false;
   private pollInProgress = false;
   private resolvedHost?: string;
+  private motorActive = false;
+  private postStopUntilMs = 0;
 
   constructor(
     private readonly host: string,
     private readonly token: string,
     private readonly pollIntervalMs: number,
     private readonly onStatus: (status: LiftSenseStatus | undefined, error?: Error) => void,
+    private readonly callbackUrl?: string,
   ) {}
 
   start(): void {
     this.stop();
+    this.running = true;
     void this.poll();
-    this.timer = setInterval(() => void this.poll(), this.pollIntervalMs);
   }
 
   stop(): void {
+    this.running = false;
     if (this.timer) {
-      clearInterval(this.timer);
+      clearTimeout(this.timer);
       this.timer = undefined;
     }
+  }
+
+  notifyMotorState(channel1Active: boolean, channel2Active: boolean): void {
+    this.updateActiveMode(channel1Active, channel2Active);
+    if (!this.running) return;
+
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = undefined;
+    }
+    if (!this.pollInProgress) void this.poll();
   }
 
   private async poll(): Promise<void> {
@@ -108,7 +144,14 @@ export class LiftSenseEsp32 {
 
     this.pollInProgress = true;
     try {
-      this.onStatus(await this.getStatus());
+      const status = await this.getStatus();
+      if (
+        status.motorChannel1Active !== undefined &&
+        status.motorChannel2Active !== undefined
+      ) {
+        this.updateActiveMode(status.motorChannel1Active, status.motorChannel2Active);
+      }
+      this.onStatus(status);
     } catch (error) {
       // Let mDNS resolve a fresh address after a failed request. This handles
       // DHCP address changes without doing multicast discovery on every poll.
@@ -116,7 +159,30 @@ export class LiftSenseEsp32 {
       this.onStatus(undefined, error instanceof Error ? error : new Error(String(error)));
     } finally {
       this.pollInProgress = false;
+      this.scheduleNextPoll();
     }
+  }
+
+  private updateActiveMode(channel1Active: boolean, channel2Active: boolean): void {
+    const nextMotorActive = channel1Active || channel2Active;
+    if (nextMotorActive) {
+      this.motorActive = true;
+      this.postStopUntilMs = 0;
+    } else if (this.motorActive) {
+      this.motorActive = false;
+      this.postStopUntilMs = Date.now() + POST_STOP_ACTIVE_MS;
+    }
+  }
+
+  private scheduleNextPoll(): void {
+    if (!this.running) return;
+    const delayMs = liftSensePollDelay(
+      this.pollIntervalMs,
+      this.motorActive,
+      this.postStopUntilMs,
+      Date.now(),
+    );
+    this.timer = setTimeout(() => void this.poll(), delayMs);
   }
 
   private getStatus(): Promise<LiftSenseStatus> {
@@ -183,7 +249,7 @@ export class LiftSenseEsp32 {
         // the HTTP path IPv4-only as well so Node never waits on an AAAA lookup.
         family: 4,
         port: 80,
-        path: '/v1/status',
+        path: liftSenseStatusPath(this.callbackUrl),
         method: 'GET',
         headers: { Authorization: `Bearer ${this.token}` },
         timeout: 5000,
