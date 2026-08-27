@@ -53,10 +53,9 @@
       },
       "liftSenseCallbackPort": {
         "title": "LiftSense Callback Port",
-        "type": "integer",
-        "default": 8582,
-        "minimum": 1024,
-        "maximum": 65535,
+        "type": "string",
+        "default": "8582",
+        "pattern": "^(?:[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$",
         "description": "Local port that receives authenticated motor-state callbacks from LiftSense."
       },
       "liftSenseCallbackHost": {

@@ -1,6 +1,6 @@
 import type { API, Logging, PlatformConfig } from 'homebridge';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DihoolLiftsPlatform } from './platform.js';
+import { DihoolLiftsPlatform, parseLiftSenseCallbackPort } from './platform.js';
 
 const cloudDevices = vi.hoisted(() => ({
   value: [] as Array<Record<string, unknown>>,
@@ -35,6 +35,19 @@ function createPlatform(config: PlatformConfig): DihoolLiftsPlatform {
 
   return new DihoolLiftsPlatform(log, config, api);
 }
+
+describe('LiftSense callback port', () => {
+  it('accepts a string port without breaking legacy numeric values', () => {
+    expect(parseLiftSenseCallbackPort('8582')).toBe(8582);
+    expect(parseLiftSenseCallbackPort(8583)).toBe(8583);
+  });
+
+  it('falls back to the default for invalid values', () => {
+    expect(parseLiftSenseCallbackPort(undefined)).toBe(8582);
+    expect(parseLiftSenseCallbackPort('not-a-port')).toBe(8582);
+    expect(parseLiftSenseCallbackPort('65536')).toBe(8582);
+  });
+});
 
 async function buildDeviceList(platform: DihoolLiftsPlatform): Promise<ResolvedDevice[]> {
   return (platform as unknown as {

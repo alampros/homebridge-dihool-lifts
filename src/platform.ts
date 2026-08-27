@@ -19,6 +19,15 @@ interface DiscoveredDevice {
   firmware?: string;
 }
 
+const DEFAULT_LIFTSENSE_CALLBACK_PORT = 8582;
+
+export function parseLiftSenseCallbackPort(value: string | number | undefined): number {
+  const port = typeof value === 'number' ? value : Number(value ?? DEFAULT_LIFTSENSE_CALLBACK_PORT);
+  return Number.isInteger(port) && port >= 1 && port <= 65535
+    ? port
+    : DEFAULT_LIFTSENSE_CALLBACK_PORT;
+}
+
 export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
   public readonly log: Logging;
   public readonly config: DihoolLiftConfig;
@@ -37,7 +46,7 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
     this.accessories = new Map();
     this.liftHandlers = new Map();
     this.liftSenseCallbackServer = new LiftSenseCallbackServer(
-      this.config.liftSenseCallbackPort ?? 8582,
+      parseLiftSenseCallbackPort(this.config.liftSenseCallbackPort),
       this.log,
     );
 
@@ -306,7 +315,7 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
   getLiftSenseCallbackUrl(): string | undefined {
     const host = this.config.liftSenseCallbackHost?.trim();
     if (!host) return undefined;
-    const port = this.config.liftSenseCallbackPort ?? 8582;
+    const port = parseLiftSenseCallbackPort(this.config.liftSenseCallbackPort);
     return `http://${host}:${port}/v1/liftsense/motor`;
   }
 

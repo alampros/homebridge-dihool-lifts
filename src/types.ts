@@ -144,8 +144,8 @@ export interface DihoolLiftConfig {
   debug?: boolean;
   /** Hostname or IPv4 address advertised to LiftSense for callbacks. */
   liftSenseCallbackHost?: string;
-  /** Local port used to receive authenticated LiftSense motor callbacks. Default: 8582. */
-  liftSenseCallbackPort?: number;
+  /** Local port used to receive authenticated LiftSense motor callbacks. Default: "8582". */
+  liftSenseCallbackPort?: string | number;
   /** Per-device overrides and settings. */
   devices?: DeviceConfig[];
 }
