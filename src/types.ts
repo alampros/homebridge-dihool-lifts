@@ -142,10 +142,8 @@ export interface DihoolLiftConfig {
   mode?: 'auto' | 'lan';
   /** Enable verbose debug logging. */
   debug?: boolean;
-  /** Hostname or IPv4 address advertised to LiftSense for callbacks. */
-  liftSenseCallbackHost?: string;
-  /** Local port used to receive authenticated LiftSense motor callbacks. Default: "8582". */
-  liftSenseCallbackPort?: string | number;
+  /** Base URL advertised to LiftSense for callbacks, for example http://10.0.0.10:8582/. */
+  liftSenseCallbackBaseUrl?: string;
   /** Per-device overrides and settings. */
   devices?: DeviceConfig[];
 }

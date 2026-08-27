@@ -71,18 +71,17 @@ Every `devices` entry must include `deviceId` so its settings stay attached to t
 | `minDistanceMm` | 150 | Distance measured at fully raised (100%) |
 | `maxDistanceMm` | 1000 | Distance measured at fully lowered (0%) |
 
-The plugin listens for authenticated LiftSense motor callbacks on port `8582`
-by default. Set the global `liftSenseCallbackHost` option to a hostname or
-reserved LAN IPv4 address that the ESP32 can use to reach Homebridge. The plugin
+Set the global `liftSenseCallbackBaseUrl` option to the full local HTTP base URL
+that the ESP32 can use to reach Homebridge, such as
+`http://10.0.0.10:8582/`. The plugin listens on the port in that URL and
 advertises the full callback URL on every status poll, so no Homebridge address
 is stored in the firmware configuration. A callback immediately changes that lift to 10 Hz polling; it
 returns to the configured `esp32PollIntervalSec` two seconds after the motor
 stops. Regular polling remains active as a fallback if a callback is missed.
 
 The callback listener is local-network only and uses the configured
-`esp32Token` as its bearer token. Each lift must use a unique token. The global
-`liftSenseCallbackPort` setting can change the listener port if `8582` is in
-use. Leave `liftSenseCallbackHost` blank to disable callbacks.
+`esp32Token` as its bearer token. Each lift must use a unique token. Leave
+`liftSenseCallbackBaseUrl` blank to disable callbacks.
 
 ### Getting the LAN key
 

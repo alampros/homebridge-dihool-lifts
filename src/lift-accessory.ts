@@ -185,18 +185,21 @@ export class LiftAccessory {
     }
 
     const pollIntervalMs = Math.max(1, config.esp32PollIntervalSec ?? 2) * 1000;
+    const callbackUrl = this.platform.getLiftSenseCallbackUrl();
     this.esp32Client = new LiftSenseEsp32(
       config.esp32Host,
       config.esp32Token,
       pollIntervalMs,
       (status, error) => this.handleEsp32Status(status, error),
-      this.platform.getLiftSenseCallbackUrl(),
+      callbackUrl,
     );
-    this.unregisterLiftSenseCallback = this.platform.registerLiftSenseCallback(
-      this.deviceId,
-      config.esp32Token,
-      (event) => this.handleLiftSenseMotorEvent(event),
-    );
+    if (callbackUrl) {
+      this.unregisterLiftSenseCallback = this.platform.registerLiftSenseCallback(
+        this.deviceId,
+        config.esp32Token,
+        (event) => this.handleLiftSenseMotorEvent(event),
+      );
+    }
     this.esp32Client.start();
     this.log.info('[%s] Polling LiftSense ESP32 at %s', this.name, config.esp32Host);
   }

@@ -51,18 +51,12 @@
         "default": false,
         "description": "Enable verbose debug logging."
       },
-      "liftSenseCallbackPort": {
-        "title": "LiftSense Callback Port",
+      "liftSenseCallbackBaseUrl": {
+        "title": "LiftSense Callback Base URL",
         "type": "string",
-        "default": "8582",
-        "pattern": "^(?:[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$",
-        "description": "Local port that receives authenticated motor-state callbacks from LiftSense."
-      },
-      "liftSenseCallbackHost": {
-        "title": "LiftSense Callback Host",
-        "type": "string",
-        "description": "Hostname or reserved LAN IPv4 address that LiftSense can use to reach this Homebridge server. Leave blank to disable callbacks and use polling only.",
-        "placeholder": "homebridge.local"
+        "pattern": "^http://[^/]+/?$",
+        "description": "Full local HTTP base URL that LiftSense can use to reach this Homebridge server. Include the port, for example http://10.0.0.10:8582/. Leave blank to disable callbacks and use polling only.",
+        "placeholder": "http://10.0.0.10:8582/"
       },
       "devices": {
         "title": "Lift Devices",
@@ -240,7 +234,7 @@
       "title": "General Settings",
       "expandable": true,
       "expanded": false,
-      "items": ["mode", "debug", "liftSenseCallbackHost", "liftSenseCallbackPort"]
+      "items": ["mode", "debug", "liftSenseCallbackBaseUrl"]
     }
   ]
 }

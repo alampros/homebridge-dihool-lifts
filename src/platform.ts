@@ -20,12 +20,35 @@ interface DiscoveredDevice {
 }
 
 const DEFAULT_LIFTSENSE_CALLBACK_PORT = 8582;
+const LIFTSENSE_CALLBACK_PATH = '/v1/liftsense/motor';
 
-export function parseLiftSenseCallbackPort(value: string | number | undefined): number {
-  const port = typeof value === 'number' ? value : Number(value ?? DEFAULT_LIFTSENSE_CALLBACK_PORT);
-  return Number.isInteger(port) && port >= 1 && port <= 65535
-    ? port
-    : DEFAULT_LIFTSENSE_CALLBACK_PORT;
+export function parseLiftSenseCallbackBaseUrl(value: string | undefined): {
+  callbackUrl?: string;
+  listenPort: number;
+} {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return { listenPort: DEFAULT_LIFTSENSE_CALLBACK_PORT };
+  }
+
+  try {
+    const baseUrl = new URL(trimmed);
+    if (baseUrl.protocol !== 'http:' || baseUrl.username || baseUrl.password || baseUrl.search || baseUrl.hash) {
+      return { listenPort: DEFAULT_LIFTSENSE_CALLBACK_PORT };
+    }
+
+    const listenPort = baseUrl.port ? Number(baseUrl.port) : 80;
+    if (!Number.isInteger(listenPort) || listenPort < 1 || listenPort > 65535) {
+      return { listenPort: DEFAULT_LIFTSENSE_CALLBACK_PORT };
+    }
+
+    return {
+      callbackUrl: `${baseUrl.origin}${LIFTSENSE_CALLBACK_PATH}`,
+      listenPort,
+    };
+  } catch {
+    return { listenPort: DEFAULT_LIFTSENSE_CALLBACK_PORT };
+  }
 }
 
 export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
@@ -45,10 +68,8 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
 
     this.accessories = new Map();
     this.liftHandlers = new Map();
-    this.liftSenseCallbackServer = new LiftSenseCallbackServer(
-      parseLiftSenseCallbackPort(this.config.liftSenseCallbackPort),
-      this.log,
-    );
+    const callbackConfig = parseLiftSenseCallbackBaseUrl(this.config.liftSenseCallbackBaseUrl);
+    this.liftSenseCallbackServer = new LiftSenseCallbackServer(callbackConfig.listenPort, this.log);
 
     this.log.info('%s initialised', PLUGIN_NAME);
 
@@ -313,10 +334,7 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
   }
 
   getLiftSenseCallbackUrl(): string | undefined {
-    const host = this.config.liftSenseCallbackHost?.trim();
-    if (!host) return undefined;
-    const port = parseLiftSenseCallbackPort(this.config.liftSenseCallbackPort);
-    return `http://${host}:${port}/v1/liftsense/motor`;
+    return parseLiftSenseCallbackBaseUrl(this.config.liftSenseCallbackBaseUrl).callbackUrl;
   }
 
   getDeviceConfig(deviceId: string): DeviceConfig | undefined {

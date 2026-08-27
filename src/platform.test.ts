@@ -1,6 +1,6 @@
 import type { API, Logging, PlatformConfig } from 'homebridge';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DihoolLiftsPlatform, parseLiftSenseCallbackPort } from './platform.js';
+import { DihoolLiftsPlatform, parseLiftSenseCallbackBaseUrl } from './platform.js';
 
 const cloudDevices = vi.hoisted(() => ({
   value: [] as Array<Record<string, unknown>>,
@@ -36,16 +36,25 @@ function createPlatform(config: PlatformConfig): DihoolLiftsPlatform {
   return new DihoolLiftsPlatform(log, config, api);
 }
 
-describe('LiftSense callback port', () => {
-  it('accepts a string port without breaking legacy numeric values', () => {
-    expect(parseLiftSenseCallbackPort('8582')).toBe(8582);
-    expect(parseLiftSenseCallbackPort(8583)).toBe(8583);
+describe('LiftSense callback base URL', () => {
+  it('builds the callback URL and listener port from one setting', () => {
+    expect(parseLiftSenseCallbackBaseUrl('http://10.0.0.10:8582/')).toEqual({
+      callbackUrl: 'http://10.0.0.10:8582/v1/liftsense/motor',
+      listenPort: 8582,
+    });
   });
 
-  it('falls back to the default for invalid values', () => {
-    expect(parseLiftSenseCallbackPort(undefined)).toBe(8582);
-    expect(parseLiftSenseCallbackPort('not-a-port')).toBe(8582);
-    expect(parseLiftSenseCallbackPort('65536')).toBe(8582);
+  it('uses port 80 when the HTTP URL omits a port', () => {
+    expect(parseLiftSenseCallbackBaseUrl('http://homebridge.local')).toEqual({
+      callbackUrl: 'http://homebridge.local/v1/liftsense/motor',
+      listenPort: 80,
+    });
+  });
+
+  it('disables callbacks and keeps the dormant default port for invalid values', () => {
+    expect(parseLiftSenseCallbackBaseUrl(undefined)).toEqual({ listenPort: 8582 });
+    expect(parseLiftSenseCallbackBaseUrl('not-a-url')).toEqual({ listenPort: 8582 });
+    expect(parseLiftSenseCallbackBaseUrl('https://10.0.0.10:8582/')).toEqual({ listenPort: 8582 });
   });
 });
 
