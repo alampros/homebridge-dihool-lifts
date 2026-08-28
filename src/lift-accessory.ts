@@ -13,6 +13,7 @@ import { positionFromDistance } from './position-from-distance.js';
 import { DEFAULTS } from './utils/constants.js';
 
 const POSITION_PUBLISH_DEADBAND_PERCENT = 2;
+const LIFTSENSE_FAILURE_THRESHOLD = 3;
 
 /**
  * Core device handler for a DIHOOL IPS-S2 scissor lift, exposed as a
@@ -52,6 +53,7 @@ export class LiftAccessory {
   private readonly esp32DebugLogging: boolean;
   private readonly esp32SyncTargetPosition: boolean;
   private readonly invertMotorChannelDirections: boolean;
+  private readonly liftSenseConfigured: boolean;
 
   private readonly tracker: LiftStateTracker;
   private coveringService: Service;
@@ -65,6 +67,7 @@ export class LiftAccessory {
   private unregisterLiftSenseCallback?: () => void;
   private esp32Position?: number;
   private esp32Available?: boolean;
+  private esp32ConsecutiveFailures = 0;
   private invalidCalibrationLogged = false;
   private invalidMotorStateLogged = false;
   private esp32MotorDirection?: LiftSenseMotorDirection;
@@ -96,6 +99,7 @@ export class LiftAccessory {
     this.esp32DebugLogging = deviceConfig?.esp32DebugLogging ?? false;
     this.esp32SyncTargetPosition = deviceConfig?.esp32SyncTargetPosition ?? false;
     this.invertMotorChannelDirections = deviceConfig?.invertMotorChannelDirections ?? false;
+    this.liftSenseConfigured = !!deviceConfig?.esp32Host && !!deviceConfig.esp32Token;
 
     // State tracker — persists to Homebridge storage directory
     this.tracker = new LiftStateTracker({
@@ -133,6 +137,20 @@ export class LiftAccessory {
       );
     }
 
+    // HomeKit communication errors are returned only when a controller reads
+    // a characteristic; they cannot be pushed as events. StatusFault gives
+    // Home.app an event-driven signal when configured LiftSense telemetry is
+    // unavailable, while the read/set handlers below enforce the hard fault.
+    if (this.liftSenseConfigured) {
+      if (!this.coveringService.testCharacteristic(this.Characteristic.StatusFault)) {
+        this.coveringService.addOptionalCharacteristic(this.Characteristic.StatusFault);
+      }
+      this.coveringService.setCharacteristic(
+        this.Characteristic.StatusFault,
+        this.Characteristic.StatusFault.GENERAL_FAULT,
+      );
+    }
+
     // Initialize characteristics from tracker state
     const pos = this.tracker.getPosition();
     this.coveringService.setCharacteristic(this.Characteristic.CurrentPosition, pos);
@@ -160,6 +178,9 @@ export class LiftAccessory {
       .onGet(() => {
         if (this.esp32Available === true && this.esp32Position !== undefined) {
           return this.esp32Position;
+        }
+        if (this.liftSenseConfigured && this.esp32Available === false) {
+          throw new this.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
         }
         if (!this.isOnline) {
           throw new this.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
@@ -209,6 +230,9 @@ export class LiftAccessory {
       event.motorChannel1Active,
       event.motorChannel2Active,
     );
+    if (this.esp32Available !== true) {
+      return;
+    }
     this.updateMotorPositionState(motorDirectionFromStatus({
       distanceMm: 0,
       sensorTimeout: false,
@@ -218,9 +242,8 @@ export class LiftAccessory {
   }
 
   private handleEsp32Status(status: LiftSenseStatus | undefined, error?: Error): void {
-    const active = !!status && !status.sensorTimeout;
-
     if (status && !status.sensorTimeout) {
+      this.esp32ConsecutiveFailures = 0;
       const position = this.positionFromDistance(status.distanceMm);
       if (position === undefined) {
         if (!this.invalidCalibrationLogged) {
@@ -231,6 +254,7 @@ export class LiftAccessory {
           this.invalidCalibrationLogged = true;
         }
         this.esp32Available = false;
+        this.updateLiftSenseFault(true);
         return;
       }
 
@@ -267,12 +291,27 @@ export class LiftAccessory {
           this.name, status.distanceMm, rawDistance, position, motorDirection,
         );
       }
-    } else if (this.esp32Available !== false) {
-      const reason = error?.message ?? 'sensor timeout';
-      this.log.warn('[%s] LiftSense ESP32 unavailable: %s', this.name, reason);
+      this.esp32Available = true;
+      this.updateLiftSenseFault(false);
+      return;
     }
 
-    this.esp32Available = active;
+    this.esp32ConsecutiveFailures += 1;
+    if (
+      this.esp32ConsecutiveFailures >= LIFTSENSE_FAILURE_THRESHOLD &&
+      this.esp32Available !== false
+    ) {
+      const reason = error?.message ?? 'sensor timeout';
+      this.esp32Available = false;
+      this.updateLiftSenseFault(true);
+      this.updateMotorPositionState('stopped');
+      this.log.warn(
+        '[%s] LiftSense unavailable after %d consecutive failures; HomeKit lift controls disabled: %s',
+        this.name,
+        this.esp32ConsecutiveFailures,
+        reason,
+      );
+    }
   }
 
   private updateMotorPositionState(direction: LiftSenseMotorDirection): void {
@@ -305,6 +344,18 @@ export class LiftAccessory {
         ? this.Characteristic.PositionState.DECREASING
         : this.Characteristic.PositionState.STOPPED;
     this.coveringService.updateCharacteristic(this.Characteristic.PositionState, positionState);
+  }
+
+  private updateLiftSenseFault(faulted: boolean): void {
+    if (!this.liftSenseConfigured) {
+      return;
+    }
+    this.coveringService.updateCharacteristic(
+      this.Characteristic.StatusFault,
+      faulted
+        ? this.Characteristic.StatusFault.GENERAL_FAULT
+        : this.Characteristic.StatusFault.NO_FAULT,
+    );
   }
 
   private positionFromDistance(distanceMm: number): number | undefined {
@@ -363,6 +414,7 @@ export class LiftAccessory {
     upSwitch.getCharacteristic(this.Characteristic.On)
       .onSet(async (value: CharacteristicValue) => {
         if (!value) return; // ignore off
+        this.assertLiftSenseAvailable();
         this.log.info('[%s] Manual UP pulse (CH%d)', this.name, this.upChannel);
         try {
           await this.pulseChannel(this.upChannel);
@@ -387,6 +439,7 @@ export class LiftAccessory {
     downSwitch.getCharacteristic(this.Characteristic.On)
       .onSet(async (value: CharacteristicValue) => {
         if (!value) return; // ignore off
+        this.assertLiftSenseAvailable();
         this.log.info('[%s] Manual DOWN pulse (CH%d)', this.name, this.downChannel);
         try {
           await this.pulseChannel(this.downChannel);
@@ -426,6 +479,8 @@ export class LiftAccessory {
   private async _handleTargetPositionSet(value: CharacteristicValue): Promise<void> {
     const target = value as number;
     this.log.info('[%s] Target position set to %d%%', this.name, target);
+
+    this.assertLiftSenseAvailable();
 
     try {
       // Clamp to binary: >= 50 → 100 (up), < 50 → 0 (down)
@@ -517,6 +572,15 @@ export class LiftAccessory {
     await this.platform.sendDeviceUpdate(this.accessory, {
       switches: [{ switch: 'on', outlet: channel }],
     });
+  }
+
+  private assertLiftSenseAvailable(): void {
+    if (this.liftSenseConfigured && this.esp32Available !== true) {
+      this.log.warn('[%s] Refusing movement because LiftSense is not available', this.name);
+      throw new this.HapStatusError(
+        this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE,
+      );
+    }
   }
 
   // -----------------------------------------------------------------------
