@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.10](https://github.com/alampros/homebridge-dihool-lifts/compare/v0.1.9...v0.1.10) (2026-08-28)
+
+
+### Features
+
+* throw faults when esp32 is unreachable ([5621dee](https://github.com/alampros/homebridge-dihool-lifts/commit/5621dee6f47e092872db9da2612115bf322e9a73))
+
 ## [0.1.9](https://github.com/alampros/homebridge-dihool-lifts/compare/v0.1.8...v0.1.9) (2026-08-27)
 
 ### Features
