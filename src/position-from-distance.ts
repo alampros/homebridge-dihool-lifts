@@ -1,8 +1,8 @@
 export interface DistanceCalibration {
   /** Distance at the fully raised (100%) position. */
-  minDistanceMm: number;
+  minDistanceMm: number
   /** Distance at the fully lowered (0%) position. */
-  maxDistanceMm: number;
+  maxDistanceMm: number
 }
 
 /**
@@ -13,22 +13,22 @@ export function positionFromDistance(
   distanceMm: number,
   calibration: DistanceCalibration,
 ): number | undefined {
-  const { minDistanceMm, maxDistanceMm } = calibration;
+  const { minDistanceMm, maxDistanceMm } = calibration
 
   if (
     !Number.isFinite(distanceMm) ||
     !Number.isFinite(minDistanceMm) ||
     !Number.isFinite(maxDistanceMm)
   ) {
-    return undefined;
+    return undefined
   }
 
-  const span = maxDistanceMm - minDistanceMm;
+  const span = maxDistanceMm - minDistanceMm
   if (span <= 0) {
-    return undefined;
+    return undefined
   }
 
-  const rawPosition = ((maxDistanceMm - distanceMm) / span) * 100;
+  const rawPosition = ((maxDistanceMm - distanceMm) / span) * 100
 
-  return Math.round(Math.max(0, Math.min(100, rawPosition)));
+  return Math.round(Math.max(0, Math.min(100, rawPosition)))
 }

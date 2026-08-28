@@ -1,124 +1,143 @@
-import type { API, DynamicPlatformPlugin, Logging, PlatformAccessory, PlatformConfig } from 'homebridge';
-import { EWeLinkCloud } from './connection/ewelink-cloud.js';
-import { EWeLinkLAN } from './connection/ewelink-lan.js';
+import type {
+  API,
+  DynamicPlatformPlugin,
+  Logging,
+  PlatformAccessory,
+  PlatformConfig,
+} from 'homebridge'
+
+import { EWeLinkCloud } from './connection/ewelink-cloud.js'
+import { EWeLinkLAN } from './connection/ewelink-lan.js'
 import {
   LiftSenseCallbackServer,
   type LiftSenseMotorEvent,
-} from './connection/liftsense-callback-server.js';
-import { LiftAccessory } from './lift-accessory.js';
-import type { AccessoryContext, DihoolLiftConfig, DeviceConfig, DeviceUpdate } from './types.js';
-import { DEFAULTS, DEFAULT_HTTP_HOST, DIHOOL_UIID, PLATFORM_NAME, PLUGIN_NAME } from './utils/constants.js';
-import { parseError } from './utils/helpers.js';
+} from './connection/liftsense-callback-server.js'
+import { LiftAccessory } from './lift-accessory.js'
+import type { AccessoryContext, DihoolLiftConfig, DeviceConfig, DeviceUpdate } from './types.js'
+import {
+  DEFAULTS,
+  DEFAULT_HTTP_HOST,
+  DIHOOL_UIID,
+  PLATFORM_NAME,
+  PLUGIN_NAME,
+} from './utils/constants.js'
+import { parseError } from './utils/helpers.js'
 
 interface DiscoveredDevice {
-  deviceId: string;
-  name: string;
-  lanKey: string;
-  uiid: number;
-  model: string;
-  firmware?: string;
+  deviceId: string
+  name: string
+  lanKey: string
+  uiid: number
+  model: string
+  firmware?: string
 }
 
-const DEFAULT_LIFTSENSE_CALLBACK_PORT = 8582;
-const LIFTSENSE_CALLBACK_PATH = '/v1/liftsense/motor';
+const DEFAULT_LIFTSENSE_CALLBACK_PORT = 8582
+const LIFTSENSE_CALLBACK_PATH = '/v1/liftsense/motor'
 
 export function parseLiftSenseCallbackBaseUrl(value: string | undefined): {
-  callbackUrl?: string;
-  listenPort: number;
+  callbackUrl?: string
+  listenPort: number
 } {
-  const trimmed = value?.trim();
+  const trimmed = value?.trim()
   if (!trimmed) {
-    return { listenPort: DEFAULT_LIFTSENSE_CALLBACK_PORT };
+    return { listenPort: DEFAULT_LIFTSENSE_CALLBACK_PORT }
   }
 
   try {
-    const baseUrl = new URL(trimmed);
-    if (baseUrl.protocol !== 'http:' || baseUrl.username || baseUrl.password || baseUrl.search || baseUrl.hash) {
-      return { listenPort: DEFAULT_LIFTSENSE_CALLBACK_PORT };
+    const baseUrl = new URL(trimmed)
+    if (
+      baseUrl.protocol !== 'http:' ||
+      baseUrl.username ||
+      baseUrl.password ||
+      baseUrl.search ||
+      baseUrl.hash
+    ) {
+      return { listenPort: DEFAULT_LIFTSENSE_CALLBACK_PORT }
     }
 
-    const listenPort = baseUrl.port ? Number(baseUrl.port) : 80;
+    const listenPort = baseUrl.port ? Number(baseUrl.port) : 80
     if (!Number.isInteger(listenPort) || listenPort < 1 || listenPort > 65535) {
-      return { listenPort: DEFAULT_LIFTSENSE_CALLBACK_PORT };
+      return { listenPort: DEFAULT_LIFTSENSE_CALLBACK_PORT }
     }
 
     return {
       callbackUrl: `${baseUrl.origin}${LIFTSENSE_CALLBACK_PATH}`,
       listenPort,
-    };
+    }
   } catch {
-    return { listenPort: DEFAULT_LIFTSENSE_CALLBACK_PORT };
+    return { listenPort: DEFAULT_LIFTSENSE_CALLBACK_PORT }
   }
 }
 
 export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
-  public readonly log: Logging;
-  public readonly config: DihoolLiftConfig;
-  public readonly api: API;
+  public readonly log: Logging
+  public readonly config: DihoolLiftConfig
+  public readonly api: API
 
-  private readonly accessories: Map<string, PlatformAccessory<AccessoryContext>>;
-  private readonly liftHandlers: Map<string, LiftAccessory>;
-  private readonly liftSenseCallbackServer: LiftSenseCallbackServer;
-  private lanClient?: EWeLinkLAN;
+  private readonly accessories: Map<string, PlatformAccessory<AccessoryContext>>
+  private readonly liftHandlers: Map<string, LiftAccessory>
+  private readonly liftSenseCallbackServer: LiftSenseCallbackServer
+  private lanClient?: EWeLinkLAN
 
   constructor(log: Logging, config: PlatformConfig, api: API) {
-    this.log = log;
-    this.config = config as DihoolLiftConfig;
-    this.api = api;
+    this.log = log
+    this.config = config as DihoolLiftConfig
+    this.api = api
 
-    this.accessories = new Map();
-    this.liftHandlers = new Map();
-    const callbackConfig = parseLiftSenseCallbackBaseUrl(this.config.liftSenseCallbackBaseUrl);
-    this.liftSenseCallbackServer = new LiftSenseCallbackServer(callbackConfig.listenPort, this.log);
+    this.accessories = new Map()
+    this.liftHandlers = new Map()
+    const callbackConfig = parseLiftSenseCallbackBaseUrl(this.config.liftSenseCallbackBaseUrl)
+    this.liftSenseCallbackServer = new LiftSenseCallbackServer(callbackConfig.listenPort, this.log)
 
-    this.log.info('%s initialised', PLUGIN_NAME);
+    this.log.info('%s initialised', PLUGIN_NAME)
 
     this.api.on('didFinishLaunching', () => {
       this.discoverDevices().catch((err: unknown) => {
-        this.log.error('Device discovery failed: %s', parseError(err));
-      });
-    });
+        this.log.error('Device discovery failed: %s', parseError(err))
+      })
+    })
 
     this.api.on('shutdown', () => {
       for (const handler of this.liftHandlers.values()) {
-        handler.destroy();
+        handler.destroy()
       }
-      void this.liftSenseCallbackServer.stop();
-      this.lanClient?.closeConnection().catch(() => {});
-    });
+      void this.liftSenseCallbackServer.stop()
+      this.lanClient?.closeConnection().catch(() => {})
+    })
   }
 
   configureAccessory(accessory: PlatformAccessory): void {
-    this.accessories.set(accessory.UUID, accessory as PlatformAccessory<AccessoryContext>);
-    this.log.info('Restored accessory from cache: %s', accessory.displayName);
+    this.accessories.set(accessory.UUID, accessory as PlatformAccessory<AccessoryContext>)
+    this.log.info('Restored accessory from cache: %s', accessory.displayName)
   }
 
   async discoverDevices(): Promise<void> {
     // Step 1: Build device list from cloud and manual config
-    const devices = await this.buildDeviceList();
+    const devices = await this.buildDeviceList()
 
     if (devices.length === 0) {
-      this.log.warn('No devices found. Check your config or cloud credentials.');
-      return;
+      this.log.warn('No devices found. Check your config or cloud credentials.')
+      return
     }
 
     // Step 2: Start LAN client
-    await this.startLanClient(devices);
+    await this.startLanClient(devices)
 
     // Step 3: Register accessories
-    this.registerAccessories(devices);
+    this.registerAccessories(devices)
 
     if (this.liftSenseCallbackServer.hasRegistrations()) {
       try {
-        await this.liftSenseCallbackServer.start();
+        await this.liftSenseCallbackServer.start()
       } catch (error) {
-        this.log.warn('LiftSense callback listener could not start: %s', parseError(error));
+        this.log.warn('LiftSense callback listener could not start: %s', parseError(error))
       }
     }
   }
 
   private async buildDeviceList(): Promise<DiscoveredDevice[]> {
-    const deviceMap = new Map<string, DiscoveredDevice>();
+    const deviceMap = new Map<string, DiscoveredDevice>()
 
     // Cloud discovery
     if (this.config.username && this.config.password) {
@@ -130,11 +149,11 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
           DEFAULT_HTTP_HOST,
           this.log,
           !!this.config.debug,
-        );
-        const cloudDevices = await cloud.discoverDevices();
+        )
+        const cloudDevices = await cloud.discoverDevices()
         for (const d of cloudDevices) {
           if (d.uiid !== DIHOOL_UIID) {
-            continue;
+            continue
           }
           deviceMap.set(d.deviceid, {
             deviceId: d.deviceid,
@@ -143,11 +162,11 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
             uiid: d.uiid,
             model: d.model || 'DIHOOL-IPS-S2',
             firmware: d.params.fwVersion as string | undefined,
-          });
-          this.log.info('Discovered via cloud: %s (%s)', d.name, d.deviceid);
+          })
+          this.log.info('Discovered via cloud: %s (%s)', d.name, d.deviceid)
         }
       } catch (err: unknown) {
-        this.log.warn('Cloud discovery failed: %s', parseError(err));
+        this.log.warn('Cloud discovery failed: %s', parseError(err))
       }
     }
 
@@ -160,27 +179,27 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
             this.log.warn(
               'Skipping manual device config: %s',
               !cfg.lanKey ? 'missing deviceId and lanKey' : 'missing deviceId',
-            );
+            )
           }
-          continue;
+          continue
         }
 
-        const discovered = deviceMap.get(cfg.deviceId);
+        const discovered = deviceMap.get(cfg.deviceId)
         if (discovered) {
           deviceMap.set(cfg.deviceId, {
             ...discovered,
             name: cfg.label ?? discovered.name,
             lanKey: cfg.lanKey ?? discovered.lanKey,
-          });
-          this.log.info('Applied configured overrides: %s', cfg.deviceId);
-          continue;
+          })
+          this.log.info('Applied configured overrides: %s', cfg.deviceId)
+          continue
         }
 
         if (!cfg.lanKey) {
           if (this.config.mode === 'lan') {
-            this.log.warn('Skipping manual device config: missing lanKey');
+            this.log.warn('Skipping manual device config: missing lanKey')
           }
-          continue;
+          continue
         }
 
         deviceMap.set(cfg.deviceId, {
@@ -189,21 +208,21 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
           lanKey: cfg.lanKey,
           uiid: DIHOOL_UIID,
           model: 'DIHOOL-IPS-S2',
-        });
-        this.log.info('Configured manual device: %s', cfg.deviceId);
+        })
+        this.log.info('Configured manual device: %s', cfg.deviceId)
       }
     }
 
-    return Array.from(deviceMap.values());
+    return Array.from(deviceMap.values())
   }
 
   private async startLanClient(devices: DiscoveredDevice[]): Promise<void> {
     // Collect IP overrides from config
-    const ipOverrides: Record<string, string> = {};
+    const ipOverrides: Record<string, string> = {}
     if (this.config.devices) {
       for (const cfg of this.config.devices) {
         if (cfg.deviceId && cfg.ipAddress) {
-          ipOverrides[cfg.deviceId] = cfg.ipAddress;
+          ipOverrides[cfg.deviceId] = cfg.ipAddress
         }
       }
     }
@@ -213,9 +232,9 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
       !!this.config.debug,
       this.config.mode ?? 'auto',
       ipOverrides,
-    );
+    )
 
-    await this.lanClient.getHosts();
+    await this.lanClient.getHosts()
 
     for (const device of devices) {
       this.lanClient.addDeviceToMap(device.deviceId, {
@@ -225,27 +244,27 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
         lanKey: device.lanKey,
         channelCount: 4,
         firmware: device.firmware,
-      } as AccessoryContext);
+      } as AccessoryContext)
     }
 
-    await this.lanClient.startMonitor();
+    await this.lanClient.startMonitor()
 
-    this.lanClient.receiveUpdate((update: DeviceUpdate) => this.receiveDeviceUpdate(update));
+    this.lanClient.receiveUpdate((update: DeviceUpdate) => this.receiveDeviceUpdate(update))
   }
 
   private registerAccessories(devices: DiscoveredDevice[]): void {
-    const discoveredDeviceIds = new Set(devices.map((d) => d.deviceId));
+    const discoveredDeviceIds = new Set(devices.map((d) => d.deviceId))
 
     for (const device of devices) {
-      const uuid = this.api.hap.uuid.generate(device.deviceId);
-      const existingAccessory = this.accessories.get(uuid);
+      const uuid = this.api.hap.uuid.generate(device.deviceId)
+      const existingAccessory = this.accessories.get(uuid)
 
       if (existingAccessory) {
-        this.log.info('Restoring existing accessory: %s (%s)', device.name, device.deviceId);
+        this.log.info('Restoring existing accessory: %s (%s)', device.name, device.deviceId)
 
         // Cached accessories retain their original cloud-derived name. Keep
         // them aligned with the resolved name, including configured labels.
-        existingAccessory.displayName = device.name;
+        existingAccessory.displayName = device.name
 
         existingAccessory.context = {
           deviceId: device.deviceId,
@@ -254,16 +273,16 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
           lanKey: device.lanKey,
           channelCount: 4,
           firmware: device.firmware,
-        };
+        }
 
-        this.api.updatePlatformAccessories([existingAccessory]);
+        this.api.updatePlatformAccessories([existingAccessory])
 
-        const handler = new LiftAccessory(this, existingAccessory);
-        this.liftHandlers.set(device.deviceId, handler);
+        const handler = new LiftAccessory(this, existingAccessory)
+        this.liftHandlers.set(device.deviceId, handler)
       } else {
-        this.log.info('Adding new accessory: %s (%s)', device.name, device.deviceId);
+        this.log.info('Adding new accessory: %s (%s)', device.name, device.deviceId)
 
-        const accessory = new this.api.platformAccessory<AccessoryContext>(device.name, uuid);
+        const accessory = new this.api.platformAccessory<AccessoryContext>(device.name, uuid)
         accessory.context = {
           deviceId: device.deviceId,
           uiid: device.uiid,
@@ -271,57 +290,60 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
           lanKey: device.lanKey,
           channelCount: 4,
           firmware: device.firmware,
-        };
+        }
 
-        accessory.category = this.api.hap.Categories.WINDOW_COVERING;
+        accessory.category = this.api.hap.Categories.WINDOW_COVERING
 
-        const handler = new LiftAccessory(this, accessory);
-        this.liftHandlers.set(device.deviceId, handler);
+        const handler = new LiftAccessory(this, accessory)
+        this.liftHandlers.set(device.deviceId, handler)
 
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
-        this.accessories.set(uuid, accessory);
+        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+        this.accessories.set(uuid, accessory)
       }
     }
 
     // Remove stale accessories not present in the discovered list
-    const accessoriesToRemove: PlatformAccessory<AccessoryContext>[] = [];
+    const accessoriesToRemove: PlatformAccessory<AccessoryContext>[] = []
     for (const accessory of this.accessories.values()) {
-      const ctx = accessory.context;
+      const ctx = accessory.context
       if (!discoveredDeviceIds.has(ctx.deviceId)) {
-        this.log.info('Removing stale accessory: %s', ctx.deviceId);
-        accessoriesToRemove.push(accessory);
+        this.log.info('Removing stale accessory: %s', ctx.deviceId)
+        accessoriesToRemove.push(accessory)
       }
     }
 
     if (accessoriesToRemove.length > 0) {
-      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, accessoriesToRemove);
+      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, accessoriesToRemove)
       for (const accessory of accessoriesToRemove) {
-        this.accessories.delete(accessory.UUID);
+        this.accessories.delete(accessory.UUID)
       }
     }
   }
 
   receiveDeviceUpdate(update: DeviceUpdate): void {
-    const handler = this.liftHandlers.get(update.deviceid);
+    const handler = this.liftHandlers.get(update.deviceid)
     if (!handler) {
-      return;
+      return
     }
 
-    handler.externalUpdate(update.params);
+    handler.externalUpdate(update.params)
 
     if (typeof update.params.online === 'boolean') {
-      handler.markStatus(update.params.online);
+      handler.markStatus(update.params.online)
     }
   }
 
-  async sendDeviceUpdate(accessory: PlatformAccessory<AccessoryContext>, params: Record<string, unknown>): Promise<void> {
-    const deviceId = accessory.context.deviceId;
+  async sendDeviceUpdate(
+    accessory: PlatformAccessory<AccessoryContext>,
+    params: Record<string, unknown>,
+  ): Promise<void> {
+    const deviceId = accessory.context.deviceId
     if (!this.lanClient) {
-      throw new Error('LAN client not initialized');
+      throw new Error('LAN client not initialized')
     }
-    const result = await this.lanClient.sendUpdate(deviceId, params);
+    const result = await this.lanClient.sendUpdate(deviceId, params)
     if (!result) {
-      throw new Error(`Failed to send update to ${deviceId}`);
+      throw new Error(`Failed to send update to ${deviceId}`)
     }
   }
 
@@ -330,45 +352,46 @@ export class DihoolLiftsPlatform implements DynamicPlatformPlugin {
     token: string,
     onEvent: (event: LiftSenseMotorEvent) => void,
   ): () => void {
-    return this.liftSenseCallbackServer.register(deviceId, token, onEvent);
+    return this.liftSenseCallbackServer.register(deviceId, token, onEvent)
   }
 
   getLiftSenseCallbackUrl(): string | undefined {
-    return parseLiftSenseCallbackBaseUrl(this.config.liftSenseCallbackBaseUrl).callbackUrl;
+    return parseLiftSenseCallbackBaseUrl(this.config.liftSenseCallbackBaseUrl).callbackUrl
   }
 
   getDeviceConfig(deviceId: string): DeviceConfig | undefined {
     if (!this.config.devices?.length) {
-      return undefined;
+      return undefined
     }
 
     // Exact match by deviceId
-    const exact = this.config.devices.find((d) => d.deviceId === deviceId);
+    const exact = this.config.devices.find((d) => d.deviceId === deviceId)
     if (exact) {
-      return exact;
+      return exact
     }
 
     // If there's exactly one device config entry with no deviceId, assume
     // it applies to this device (common when using cloud discovery with a
     // single lift).
-    const unkeyed = this.config.devices.filter((d) => !d.deviceId);
+    const unkeyed = this.config.devices.filter((d) => !d.deviceId)
     if (unkeyed.length === 1) {
       this.log.info(
         'Device config has no deviceId — assuming it applies to %s. ' +
-        'Set "deviceId": "%s" in your config to silence this warning.',
-        deviceId, deviceId,
-      );
-      return unkeyed[0];
+          'Set "deviceId": "%s" in your config to silence this warning.',
+        deviceId,
+        deviceId,
+      )
+      return unkeyed[0]
     }
 
     if (unkeyed.length > 1) {
       this.log.warn(
         'Multiple device config entries without deviceId — cannot determine which applies to %s. ' +
-        'Add "deviceId" to each entry in config.json.',
+          'Add "deviceId" to each entry in config.json.',
         deviceId,
-      );
+      )
     }
 
-    return undefined;
+    return undefined
   }
 }

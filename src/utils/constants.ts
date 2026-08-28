@@ -1,6 +1,6 @@
 /** eWeLink cloud API credentials (same as homebridge-ewelink) */
-export const EWELINK_APP_ID = 'Uw83EKZFxdif7XFXEsrpduz5YyjP7nTl';
-export const EWELINK_APP_SECRET = 'mXLOjea0woSMvK9gw7Fjsy7YlFO4iSu6';
+export const EWELINK_APP_ID = 'Uw83EKZFxdif7XFXEsrpduz5YyjP7nTl'
+export const EWELINK_APP_SECRET = 'mXLOjea0woSMvK9gw7Fjsy7YlFO4iSu6'
 
 /** eWeLink API hosts by region */
 export const EWELINK_HOSTS: Record<string, string> = {
@@ -8,19 +8,19 @@ export const EWELINK_HOSTS: Record<string, string> = {
   eu: 'eu-apia.coolkit.cc',
   as: 'as-apia.coolkit.cc',
   cn: 'cn-apia.coolkit.cn',
-};
+}
 
 /** Default HTTP host (US region) */
-export const DEFAULT_HTTP_HOST = EWELINK_HOSTS.us;
+export const DEFAULT_HTTP_HOST = EWELINK_HOSTS.us
 
 /** UIID for DIHOOL IPS-S2 (CK-BL602-4SW-HS) */
-export const DIHOOL_UIID = 139;
+export const DIHOOL_UIID = 139
 
 /** eWeLink LAN device port */
-export const EWELINK_LAN_PORT = 8081;
+export const EWELINK_LAN_PORT = 8081
 
 /** HTTP retry-able error codes */
-export const HTTP_RETRY_CODES = ['ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'ECONNABORTED'];
+export const HTTP_RETRY_CODES = ['ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'ECONNABORTED']
 
 /**
  * Parameters from device state that we care about.
@@ -35,7 +35,7 @@ export const PARAMS_TO_KEEP = [
   'sledOnline',
   'switch',
   'switches',
-] as const;
+] as const
 
 /** Default configuration values */
 export const DEFAULTS = {
@@ -49,8 +49,8 @@ export const DEFAULTS = {
   downChannel: 1,
   /** Country code for eWeLink login */
   countryCode: '+1',
-} as const;
+} as const
 
 /** Plugin identifiers */
-export const PLUGIN_NAME = 'homebridge-dihool-lifts';
-export const PLATFORM_NAME = 'DihoolLifts';
+export const PLUGIN_NAME = 'homebridge-dihool-lifts'
+export const PLATFORM_NAME = 'DihoolLifts'

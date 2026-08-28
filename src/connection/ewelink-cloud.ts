@@ -1,41 +1,43 @@
-import { createHmac, randomBytes } from 'node:crypto';
-import type { Logger } from 'homebridge';
-import { EWELINK_APP_ID, EWELINK_APP_SECRET, HTTP_RETRY_CODES } from '../utils/constants.js';
-import { sleep } from '../utils/helpers.js';
+import { createHmac, randomBytes } from 'node:crypto'
+
+import type { Logger } from 'homebridge'
+
+import { EWELINK_APP_ID, EWELINK_APP_SECRET, HTTP_RETRY_CODES } from '../utils/constants.js'
+import { sleep } from '../utils/helpers.js'
 
 /* ------------------------------------------------------------------
  * Types
  * ---------------------------------------------------------------- */
 
 interface EWeLinkResponse<T> {
-  error: number;
-  msg: string;
-  data: T;
+  error: number
+  msg: string
+  data: T
 }
 
 interface LoginData {
-  at: string;
+  at: string
   user: {
-    apikey: string;
-  };
-  region?: string;
+    apikey: string
+  }
+  region?: string
 }
 
 interface FamilyData {
-  familyList?: Array<{ id: string; name: string }>;
+  familyList?: Array<{ id: string; name: string }>
 }
 
 interface ThingData {
-  thingList?: Array<Record<string, unknown>>;
+  thingList?: Array<Record<string, unknown>>
 }
 
 export interface DiscoveredDevice {
-  deviceid: string;
-  name: string;
-  devicekey: string;
-  uiid: number;
-  model: string;
-  params: Record<string, unknown>;
+  deviceid: string
+  name: string
+  devicekey: string
+  uiid: number
+  model: string
+  params: Record<string, unknown>
 }
 
 /* ------------------------------------------------------------------
@@ -48,8 +50,8 @@ class EWeLinkAPIError extends Error {
     message: string,
     public readonly data?: unknown,
   ) {
-    super(message);
-    this.name = 'EWeLinkAPIError';
+    super(message)
+    this.name = 'EWeLinkAPIError'
   }
 }
 
@@ -63,8 +65,8 @@ class EWeLinkAPIError extends Error {
  * Adapted from homebridge-ewelink's lib/connection/http.js.
  */
 export class EWeLinkCloud {
-  private aToken?: string;
-  private apiKey?: string;
+  private aToken?: string
+  private apiKey?: string
 
   constructor(
     private readonly username: string,
@@ -88,27 +90,30 @@ export class EWeLinkCloud {
    * @returns Authentication tokens and the resolved HTTP host.
    */
   async login(): Promise<{ aToken: string; apiKey: string; httpHost: string }> {
-    const isEmail = this.username.includes('@');
+    const isEmail = this.username.includes('@')
 
     const buildBody = (pwd: string): string => {
       const body: Record<string, string> = {
         countryCode: this.countryCode,
         password: pwd,
-      };
-      if (isEmail) {
-        body.email = this.username;
-      } else {
-        body.phoneNumber = this.username;
       }
-      return JSON.stringify(body);
-    };
+      if (isEmail) {
+        body.email = this.username
+      } else {
+        body.phoneNumber = this.username
+      }
+      return JSON.stringify(body)
+    }
 
-    const doLogin = async (pwd: string, isDecoded = false): Promise<{ aToken: string; apiKey: string; httpHost: string }> => {
-      const body = buildBody(pwd);
-      const nonce = this.generateNonce();
-      const signature = this.generateSignature(body);
+    const doLogin = async (
+      pwd: string,
+      isDecoded = false,
+    ): Promise<{ aToken: string; apiKey: string; httpHost: string }> => {
+      const body = buildBody(pwd)
+      const nonce = this.generateNonce()
+      const signature = this.generateSignature(body)
 
-      const url = `https://${this.httpHost}/v2/user/login`;
+      const url = `https://${this.httpHost}/v2/user/login`
 
       try {
         const data = await this.fetchWithRetry<LoginData>(url, {
@@ -120,50 +125,50 @@ export class EWeLinkCloud {
             'X-CK-Nonce': nonce,
           },
           body,
-        });
+        })
 
-        this.aToken = data.at;
-        this.apiKey = data.user.apikey;
+        this.aToken = data.at
+        this.apiKey = data.user.apikey
 
         if (this.debug) {
-          this.log.debug('[eWeLink Cloud] Login successful');
+          this.log.debug('[eWeLink Cloud] Login successful')
         }
 
-        return { aToken: data.at, apiKey: data.user.apikey, httpHost: this.httpHost };
+        return { aToken: data.at, apiKey: data.user.apikey, httpHost: this.httpHost }
       } catch (error) {
         if (error instanceof EWeLinkAPIError) {
           // Region redirect — update host and retry
           if (error.code === 10004 && error.data && typeof error.data === 'object') {
-            const region = (error.data as Record<string, unknown>).region;
+            const region = (error.data as Record<string, unknown>).region
             if (typeof region === 'string') {
-              const newHost = region.includes('.') ? region : `${region}-apia.coolkit.cc`;
+              const newHost = region.includes('.') ? region : `${region}-apia.coolkit.cc`
               if (this.debug) {
-                this.log.debug('[eWeLink Cloud] Redirecting to region: %s (%s)', region, newHost);
+                this.log.debug('[eWeLink Cloud] Redirecting to region: %s (%s)', region, newHost)
               }
-              this.httpHost = newHost;
-              return doLogin(pwd, isDecoded);
+              this.httpHost = newHost
+              return doLogin(pwd, isDecoded)
             }
           }
 
           // Password error — try base64-decoding the password once
           if ((error.code === 10001 || error.code === 10014) && !isDecoded) {
             try {
-              const decodedPwd = Buffer.from(pwd, 'base64').toString('utf8');
+              const decodedPwd = Buffer.from(pwd, 'base64').toString('utf8')
               if (this.debug) {
-                this.log.debug('[eWeLink Cloud] Retrying login with base64-decoded password');
+                this.log.debug('[eWeLink Cloud] Retrying login with base64-decoded password')
               }
-              return doLogin(decodedPwd, true);
+              return doLogin(decodedPwd, true)
             } catch {
               // Fall through to throw the original error
             }
           }
         }
 
-        throw error;
+        throw error
       }
-    };
+    }
 
-    return doLogin(this.password);
+    return doLogin(this.password)
   }
 
   /**
@@ -173,11 +178,11 @@ export class EWeLinkCloud {
    */
   async getHomes(): Promise<Array<{ id: string; name: string }>> {
     if (!this.aToken) {
-      throw new Error('Not logged in');
+      throw new Error('Not logged in')
     }
 
-    const nonce = this.generateNonce();
-    const url = `https://${this.httpHost}/v2/family`;
+    const nonce = this.generateNonce()
+    const url = `https://${this.httpHost}/v2/family`
 
     const data = await this.fetchWithRetry<FamilyData>(url, {
       method: 'GET',
@@ -186,9 +191,9 @@ export class EWeLinkCloud {
         'X-CK-Appid': EWELINK_APP_ID,
         'X-CK-Nonce': nonce,
       },
-    });
+    })
 
-    return data.familyList || [];
+    return data.familyList || []
   }
 
   /**
@@ -199,11 +204,11 @@ export class EWeLinkCloud {
    */
   async getDevices(familyId: string): Promise<unknown[]> {
     if (!this.aToken) {
-      throw new Error('Not logged in');
+      throw new Error('Not logged in')
     }
 
-    const nonce = this.generateNonce();
-    const url = `https://${this.httpHost}/v2/device/thing?num=0&familyid=${encodeURIComponent(familyId)}`;
+    const nonce = this.generateNonce()
+    const url = `https://${this.httpHost}/v2/device/thing?num=0&familyid=${encodeURIComponent(familyId)}`
 
     const data = await this.fetchWithRetry<ThingData>(url, {
       method: 'GET',
@@ -212,9 +217,9 @@ export class EWeLinkCloud {
         'X-CK-Appid': EWELINK_APP_ID,
         'X-CK-Nonce': nonce,
       },
-    });
+    })
 
-    return data.thingList || [];
+    return data.thingList || []
   }
 
   /**
@@ -224,47 +229,53 @@ export class EWeLinkCloud {
    * @returns Flat array of discovered device objects.
    */
   async discoverDevices(): Promise<DiscoveredDevice[]> {
-    await this.login();
+    await this.login()
 
     if (this.debug) {
-      this.log.debug('[eWeLink Cloud] Starting device discovery (host: %s)', this.httpHost);
+      this.log.debug('[eWeLink Cloud] Starting device discovery (host: %s)', this.httpHost)
     }
 
-    const homes = await this.getHomes();
-    const devices: DiscoveredDevice[] = [];
+    const homes = await this.getHomes()
+    const devices: DiscoveredDevice[] = []
 
     for (const home of homes) {
       if (this.debug) {
-        this.log.debug('[eWeLink Cloud] Fetching devices for home: %s (%s)', home.name, home.id);
+        this.log.debug('[eWeLink Cloud] Fetching devices for home: %s (%s)', home.name, home.id)
       }
 
-      const thingList = await this.getDevices(home.id);
+      const thingList = await this.getDevices(home.id)
 
       for (const item of thingList) {
-        const thing = item as Record<string, unknown>;
-        const itemType = thing.itemType;
-        const rawItemData = thing.itemData;
+        const thing = item as Record<string, unknown>
+        const itemType = thing.itemType
+        const rawItemData = thing.itemData
 
         if (
           (itemType === 1 || itemType === 2) &&
           typeof rawItemData === 'object' &&
           rawItemData !== null
         ) {
-          const itemData = rawItemData as Record<string, unknown>;
-          const extra = itemData.extra as Record<string, unknown> | undefined;
+          const itemData = rawItemData as Record<string, unknown>
+          const extra = itemData.extra as Record<string, unknown> | undefined
 
           if (extra?.uiid !== undefined) {
-            const deviceId = this.getRequiredString(itemData, 'deviceid');
-            const name = this.getRequiredString(itemData, 'name') ?? deviceId ?? 'Unnamed device';
-            const lanKey = this.getRequiredString(itemData, 'devicekey') ?? this.getRequiredString(itemData, 'apikey');
+            const deviceId = this.getRequiredString(itemData, 'deviceid')
+            const name = this.getRequiredString(itemData, 'name') ?? deviceId ?? 'Unnamed device'
+            const lanKey =
+              this.getRequiredString(itemData, 'devicekey') ??
+              this.getRequiredString(itemData, 'apikey')
 
             if (!deviceId || !lanKey) {
               this.log.warn(
                 '[eWeLink Cloud] Skipping malformed device "%s": missing %s',
                 name,
-                !deviceId && !lanKey ? 'device ID and LAN key' : !deviceId ? 'device ID' : 'LAN key (devicekey/apikey)',
-              );
-              continue;
+                !deviceId && !lanKey
+                  ? 'device ID and LAN key'
+                  : !deviceId
+                    ? 'device ID'
+                    : 'LAN key (devicekey/apikey)',
+              )
+              continue
             }
 
             devices.push({
@@ -274,17 +285,17 @@ export class EWeLinkCloud {
               uiid: Number(extra.uiid),
               model: String(extra.model || itemData.productModel || ''),
               params: (itemData.params as Record<string, unknown>) || {},
-            });
+            })
           }
         }
       }
     }
 
     if (this.debug) {
-      this.log.debug('[eWeLink Cloud] Discovered %d devices', devices.length);
+      this.log.debug('[eWeLink Cloud] Discovered %d devices', devices.length)
     }
 
-    return devices;
+    return devices
   }
 
   /* ------------------------------------------------------------------
@@ -292,21 +303,21 @@ export class EWeLinkCloud {
    * ---------------------------------------------------------------- */
 
   private generateNonce(): string {
-    return randomBytes(4).toString('hex');
+    return randomBytes(4).toString('hex')
   }
 
   private generateSignature(body: string): string {
-    return createHmac('sha256', EWELINK_APP_SECRET).update(body).digest('base64');
+    return createHmac('sha256', EWELINK_APP_SECRET).update(body).digest('base64')
   }
 
   private getRequiredString(data: Record<string, unknown>, key: string): string | undefined {
-    const value = data[key];
+    const value = data[key]
     if (typeof value !== 'string') {
-      return undefined;
+      return undefined
     }
 
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : undefined
   }
 
   private async fetchWithRetry<T>(
@@ -315,7 +326,7 @@ export class EWeLinkCloud {
     retries = 3,
     backoff = 1000,
   ): Promise<T> {
-    let lastError: Error | undefined;
+    let lastError: Error | undefined
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
@@ -326,23 +337,23 @@ export class EWeLinkCloud {
             url,
             attempt + 1,
             retries + 1,
-          );
+          )
         }
 
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 15000)
 
         try {
           const response = await fetch(url, {
             ...options,
             signal: controller.signal,
-          });
+          })
 
-          let json: EWeLinkResponse<T>;
+          let json: EWeLinkResponse<T>
           try {
-            json = (await response.json()) as EWeLinkResponse<T>;
+            json = (await response.json()) as EWeLinkResponse<T>
           } catch {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
           }
 
           if (json.error !== 0) {
@@ -350,25 +361,25 @@ export class EWeLinkCloud {
               json.error,
               json.msg || `eWeLink API error ${json.error}`,
               json.data,
-            );
+            )
           }
 
-          return json.data;
+          return json.data
         } finally {
-          clearTimeout(timeout);
+          clearTimeout(timeout)
         }
       } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        lastError = err;
+        const err = error instanceof Error ? error : new Error(String(error))
+        lastError = err
 
         // API errors are not retried
         if (error instanceof EWeLinkAPIError) {
-          throw error;
+          throw error
         }
 
-        const shouldRetry = HTTP_RETRY_CODES.some((code) => err.message.includes(code));
+        const shouldRetry = HTTP_RETRY_CODES.some((code) => err.message.includes(code))
         if (!shouldRetry || attempt >= retries) {
-          throw err;
+          throw err
         }
 
         if (this.debug) {
@@ -376,14 +387,14 @@ export class EWeLinkCloud {
             '[eWeLink HTTP] Network error, retrying in %d ms: %s',
             backoff,
             err.message,
-          );
+          )
         }
 
-        await sleep(backoff);
-        backoff *= 2;
+        await sleep(backoff)
+        backoff *= 2
       }
     }
 
-    throw lastError!;
+    throw lastError!
   }
 }

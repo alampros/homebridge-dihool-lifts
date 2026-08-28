@@ -9,9 +9,9 @@
  */
 export interface SwitchState {
   /** Channel power state. */
-  switch: 'on' | 'off';
+  switch: 'on' | 'off'
   /** Outlet index (0-3). */
-  outlet: number;
+  outlet: number
 }
 
 /**
@@ -19,21 +19,21 @@ export interface SwitchState {
  */
 export interface EWeLinkDevice {
   /** eWeLink device ID (e.g. "100293a98d"). */
-  deviceid: string;
+  deviceid: string
   /** Human-readable device name (e.g. "Sunroom Hydraulic Lift"). */
-  name: string;
+  name: string
   /** The lanKey used for AES encryption in LAN mode. */
-  devicekey: string;
+  devicekey: string
   /** Device type info (uiid, model, etc.). */
   extra?: {
-    uiid: number;
-    model?: string;
-  };
+    uiid: number
+    model?: string
+  }
   /** Current device state parameters. */
   params?: {
-    switches?: SwitchState[];
-    [key: string]: unknown;
-  };
+    switches?: SwitchState[]
+    [key: string]: unknown
+  }
 }
 
 /**
@@ -41,15 +41,15 @@ export interface EWeLinkDevice {
  */
 export interface DeviceParams {
   /** Current switch states for multi-channel devices. */
-  switches?: SwitchState[];
+  switches?: SwitchState[]
   /** Whether the device is currently online. */
-  online?: boolean;
+  online?: boolean
   /** Source of the update: LAN (mDNS/UDP) or WS (WebSocket/cloud). */
-  updateSource?: 'LAN' | 'WS';
+  updateSource?: 'LAN' | 'WS'
   /** IP address of the device on the local network. */
-  ip?: string;
+  ip?: string
   /** Additional eWeLink params. */
-  [key: string]: unknown;
+  [key: string]: unknown
 }
 
 /**
@@ -57,9 +57,9 @@ export interface DeviceParams {
  */
 export interface DeviceUpdate {
   /** eWeLink device ID. */
-  deviceid: string;
+  deviceid: string
   /** Updated device parameters. */
-  params: DeviceParams;
+  params: DeviceParams
 }
 
 /**
@@ -67,17 +67,17 @@ export interface DeviceUpdate {
  */
 export interface LanDeviceInfo {
   /** Discovered or configured IP address. */
-  ip?: string;
+  ip?: string
   /** Whether the IP was manually overridden (not discovered via mDNS). */
-  ipOverride: boolean;
+  ipOverride: boolean
   /** AES encryption key for LAN communication. */
-  lanKey?: string;
+  lanKey?: string
   /** eWeLink UIID (device type identifier). */
-  uiid?: number;
+  uiid?: number
   /** Product model string. */
-  productModel?: string;
+  productModel?: string
   /** Last initialization vector used for AES encryption. */
-  lastIV?: string;
+  lastIV?: string
 }
 
 /**
@@ -85,45 +85,45 @@ export interface LanDeviceInfo {
  */
 export interface DeviceConfig {
   /** eWeLink device ID. Required for manual/LAN-only devices. Optional for a single cloud-discovered lift override. */
-  deviceId?: string;
+  deviceId?: string
   /** Optional display label (overrides cloud name). */
-  label?: string;
+  label?: string
   /** Manual IP address override (skips mDNS discovery for this device). */
-  ipAddress?: string;
+  ipAddress?: string
   /** Manual lanKey override (skips cloud login for this device). */
-  lanKey?: string;
+  lanKey?: string
   /** Outlet index for the "up" direction (default: 0). */
-  upChannel?: number;
+  upChannel?: number
   /** Outlet index for the "down" direction (default: 1). */
-  downChannel?: number;
+  downChannel?: number
   /** Expose Manual Up / Manual Down switches that send raw pulses, bypassing state tracking. */
-  manualSwitches?: boolean;
+  manualSwitches?: boolean
   /** mDNS hostname or IP address of the LiftSense ESP32 (for example, liftsense.local). */
-  esp32Host?: string;
+  esp32Host?: string
   /** Shared API token configured on the LiftSense ESP32. */
-  esp32Token?: string;
+  esp32Token?: string
   /** ESP32 status poll interval in seconds. Default: 2. */
-  esp32PollIntervalSec?: number;
+  esp32PollIntervalSec?: number
   /** Log each ESP32 sensor poll. Default: false. */
-  esp32DebugLogging?: boolean;
+  esp32DebugLogging?: boolean
   /**
    * Synchronize HomeKit TargetPosition with measured ESP32 position so the
    * Home app displays an exact percentage. Keep false until the sensor is
    * installed and calibrated. Default: false.
    */
-  esp32SyncTargetPosition?: boolean;
+  esp32SyncTargetPosition?: boolean
   /** Swap the observed meanings of LiftSense motor channels 1 and 2. Default: false. */
-  invertMotorChannelDirections?: boolean;
+  invertMotorChannelDirections?: boolean
   /** Minimum sensor distance in mm, at the fully raised (100%) position. Default: 150. */
-  minDistanceMm?: number;
+  minDistanceMm?: number
   /** Maximum sensor distance in mm, at the fully lowered (0%) position. Default: 1000. */
-  maxDistanceMm?: number;
+  maxDistanceMm?: number
   /** @deprecated Use minDistanceMm. Sensor distance when fully raised. */
-  raisedDistanceMm?: number;
+  raisedDistanceMm?: number
   /** @deprecated Use maxDistanceMm. Sensor distance when fully lowered. */
-  loweredDistanceMm?: number;
+  loweredDistanceMm?: number
   /** @deprecated Used only with legacy raised/lowered distance settings. */
-  distanceDecreasesWhenRising?: boolean;
+  distanceDecreasesWhenRising?: boolean
 }
 
 /**
@@ -131,21 +131,21 @@ export interface DeviceConfig {
  */
 export interface DihoolLiftConfig {
   /** Plugin instance name. */
-  name?: string;
+  name?: string
   /** eWeLink account email or phone number. */
-  username?: string;
+  username?: string
   /** eWeLink account password. */
-  password?: string;
+  password?: string
   /** Country code for eWeLink login (default: "+1"). */
-  countryCode?: string;
+  countryCode?: string
   /** Connection mode: 'auto' (cloud + LAN fallback) or 'lan' (LAN only) (default: "auto"). */
-  mode?: 'auto' | 'lan';
+  mode?: 'auto' | 'lan'
   /** Enable verbose debug logging. */
-  debug?: boolean;
+  debug?: boolean
   /** Base URL advertised to LiftSense for callbacks, for example http://10.0.0.10:8582/. */
-  liftSenseCallbackBaseUrl?: string;
+  liftSenseCallbackBaseUrl?: string
   /** Per-device overrides and settings. */
-  devices?: DeviceConfig[];
+  devices?: DeviceConfig[]
 }
 
 /**
@@ -153,15 +153,15 @@ export interface DihoolLiftConfig {
  */
 export interface AccessoryContext {
   /** eWeLink device ID. */
-  deviceId: string;
+  deviceId: string
   /** eWeLink UIID (device type identifier). */
-  uiid: number;
+  uiid: number
   /** Device model string. */
-  model: string;
+  model: string
   /** AES encryption key for LAN communication. */
-  lanKey: string;
+  lanKey: string
   /** Number of switch channels the device supports. */
-  channelCount: number;
+  channelCount: number
   /** Device firmware version (if known). */
-  firmware?: string;
+  firmware?: string
 }

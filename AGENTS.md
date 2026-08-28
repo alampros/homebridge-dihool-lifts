@@ -41,6 +41,7 @@ src/
 ```
 
 Key design decisions:
+
 - Uses **WindowCovering** (not GarageDoorOpener) to enable Siri percentage commands
 - **Cloud is discovery-only** -- all control commands go over LAN
 - Uses `node:http` for device requests because eWeLink's HTTP server has issues with `undici`/`fetch`
@@ -55,6 +56,7 @@ Tests use an injectable clock (`now` parameter) for deterministic time simulatio
 ## Scripts
 
 Utility scripts in `scripts/` are run with `npx tsx`:
+
 ```sh
 npx tsx scripts/get-lankey.ts <email> [countryCode] [region]
 npx tsx scripts/monitor-device.ts ...
